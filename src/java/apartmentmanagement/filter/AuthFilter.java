@@ -19,9 +19,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Bảo vệ URL theo session + role.
- * Public: /auth (login), assets tĩnh.
- * Role map mở rộng khi module thêm URL.
+ * Bảo vệ URL theo session + role. Public: /auth (login), assets tĩnh. Role map
+ * mở rộng khi module thêm URL.
  */
 @WebFilter(filterName = "AuthFilter", urlPatterns = {"/*"})
 public class AuthFilter implements Filter {
@@ -38,7 +37,9 @@ public class AuthFilter implements Filter {
             "/images/"
     ));
 
-    /** path prefix -> roles được phép (rỗng = mọi user đã login) */
+    /**
+     * path prefix -> roles được phép (rỗng = mọi user đã login)
+     */
     private static final Map<String, Set<String>> ROLE_RULES = new HashMap<>();
 
     static {
@@ -73,6 +74,11 @@ public class AuthFilter implements Filter {
                 AppConstants.ROLE_STAFF,
                 AppConstants.ROLE_RESIDENT
         ));
+        // Module TV2–TV5: khi thêm servlet, bổ sung prefix tại đây nếu cần siết role
+        // ROLE_RULES.put("/apartment", ...);  // TV2
+        // ROLE_RULES.put("/fee", ...);        // TV3
+        // ROLE_RULES.put("/request", ...);    // TV4/TV5
+        // ROLE_RULES.put("/admin", ...);      // TV5 — đã map ADMIN ở trên
     }
 
     private static Set<String> set(String... roles) {
