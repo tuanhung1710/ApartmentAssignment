@@ -4,7 +4,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 /**
- * Flash message helper – set vào session, đọc 1 lần rồi xóa.
+ * Flash message helper – lưu session, đọc 1 lần rồi xóa (Post/Redirect/Get).
+ *
+ * Cách dùng:
+ *   FlashUtil.success(request, "Lưu thành công");
+ *   response.sendRedirect(...);
+ *   // ở doGet trước khi forward layout:
+ *   FlashUtil.moveToRequest(request);
  */
 public final class FlashUtil {
 
@@ -21,9 +27,18 @@ public final class FlashUtil {
         session.setAttribute(AppConstants.FLASH_ERROR, message);
     }
 
+    /** Alias tên theo brief assignment */
+    public static void setFlashSuccess(HttpServletRequest request, String message) {
+        success(request, message);
+    }
+
+    public static void setFlashError(HttpServletRequest request, String message) {
+        error(request, message);
+    }
+
     /**
      * Chuyển flash từ session sang request attribute rồi xóa session flash.
-     * Gọi trước khi forward JSP layout.
+     * Gọi trước khi forward JSP layout (flash.jsp đọc từ request).
      */
     public static void moveToRequest(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
