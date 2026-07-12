@@ -43,5 +43,13 @@ public final class AppConstants {
     public static final String FEE_PAID = "PAID";
     public static final String FEE_UNPAID = "UNPAID";
 
+    /** Apartment occupancy type */
+    public static final String OCCUPANCY_OWNED = "OWNED";
+    public static final String OCCUPANCY_RENTED = "RENTED";
+
+    /** Apartment status */
+    public static final String APT_STATUS_ACTIVE = "ACTIVE";
+    public static final String APT_STATUS_INACTIVE = "INACTIVE";
+
     public static final int DEFAULT_PAGE_SIZE = 10;
 }
