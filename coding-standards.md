@@ -150,7 +150,87 @@ Dùng `<c:url>` + `<c:param>` giữ filter, rồi `&page=`:
 
 ---
 
-## 7. Package map
+## 7. Responsive (bắt buộc – thiết bị phổ biến)
+
+App phải dùng được trên **mobile, tablet, desktop**. Dùng **Bootstrap 5 grid + utility**; CSS riêng chỉ bổ sung shell (`app.css`).
+
+### 7.1. Breakpoint mục tiêu
+
+| Nhóm | Độ rộng tham chiếu | Bootstrap |
+|------|--------------------|----------|
+| Mobile | 360 – 430 (iPhone SE → Pro Max) | `< md` / `< lg` |
+| Tablet | 768 – 1024 (iPad dọc/ngang) | `md` – `lg` |
+| Desktop / laptop | ≥ 1280 | `≥ lg` / `xl` |
+
+Breakpoints BS5: `sm` 576 · `md` 768 · `lg` 992 · `xl` 1200 · `xxl` 1400.
+
+### 7.2. Quy tắc bắt buộc
+
+1. **Viewport** trong mọi layout / trang public:
+
+   ```html
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+   ```
+
+2. **Không** set `width` cố định px cho layout chính / bảng full-page (vd. `width: 1200px`). Ưu tiên `%`, `max-width`, grid Bootstrap.
+
+3. **Shell (TV1 – `layout.jsp` + `app.css`)**  
+   - Desktop (`≥ lg` 992px): sidebar cố định.  
+   - Mobile / tablet dọc (`< lg`): sidebar ẩn → **hamburger + Bootstrap Offcanvas** (cùng menu role).  
+   - **Cấm** `display: none` sidebar mà không có menu thay thế.
+
+4. **Grid content** – luôn stack trên mobile:
+
+   | Thành phần | Class gợi ý |
+   |------------|-------------|
+   | Stat card 3 cột | `col-12 col-sm-6 col-lg-4` |
+   | Stat card 4 cột | `col-12 col-sm-6 col-xl-3` |
+   | Form 2 cột | `col-12 col-md-6` |
+   | Label/value profile | `col-12 col-sm-3` / `col-12 col-sm-9` |
+
+5. **Bảng list** – bọc luôn:
+
+   ```jsp
+   <div class="table-responsive">
+       <table class="table table-hover align-middle">...</table>
+   </div>
+   ```
+
+6. **Nút / toolbar** card header: cho wrap trên mobile  
+   `d-flex flex-column flex-sm-row gap-2` (hoặc `flex-wrap`).
+
+7. **Ẩn bớt chữ, giữ icon** khi hẹp (đã dùng ở topbar):  
+   `d-none d-md-inline` cho tên user dài; role badge vẫn hiện.
+
+8. **Form**: `input` full width trong cột; nút primary không tràn màn hình hẹp (`w-100 w-sm-auto` nếu cần).
+
+9. **Ảnh / hero (trang public)**: `max-width: 100%`; ẩn cột ảnh trang trí trên mobile (`d-none d-md-block`).
+
+10. **Không** phụ thuộc hover-only cho thao tác chính (mobile không hover). Dùng click/tap.
+
+### 7.3. Ai chịu trách nhiệm
+
+| Phần | Owner |
+|------|--------|
+| `layout.jsp`, `header`, `sidebar`, offcanvas, `app.css` shell | **TV1** |
+| Grid / table / form trong JSP module | **Owner module** (TV2–TV5) |
+| Trang login / public auth | **TV1** |
+
+TV2–TV5 **không** sửa `layout.jsp` / `sidebar` để “fix mobile” — chỉ dùng class Bootstrap trong content fragment.
+
+### 7.4. Checklist trước khi merge UI
+
+- [ ] Có `viewport` meta  
+- [ ] Mở DevTools: **390×844** (mobile) — menu mở được, không mất nav  
+- [ ] **768×1024** (tablet) — form/table không tràn ngang vô hạn  
+- [ ] **1280+** — sidebar + content ổn  
+- [ ] Table có `.table-responsive`  
+- [ ] Card/stat dùng `col-12` + breakpoint, không chỉ `col-md-*`  
+- [ ] Không scroll ngang toàn trang (`overflow-x` body)
+
+---
+
+## 8. Package map
 
 ```
 apartmentmanagement
@@ -169,7 +249,7 @@ apartmentmanagement
 
 ---
 
-## 8. Checklist PR / commit
+## 9. Checklist PR / commit
 
 - [ ] Jakarta only  
 - [ ] Entity: Lombok + wrapper + không nested object  
@@ -177,4 +257,6 @@ apartmentmanagement
 - [ ] DAO: open/close + `getFromResultSet`  
 - [ ] Servlet: `@WebServlet` + `action` switch + method tách  
 - [ ] JSP: Bootstrap + JSTL + EL; JS không lạm dụng `${}`  
+- [ ] **Responsive:** viewport + grid `col-12…` + table-responsive + menu mobile (shell TV1)  
 - [ ] Không commit password máy cá nhân nếu fork public (nhắc đổi sau demo)  
+
