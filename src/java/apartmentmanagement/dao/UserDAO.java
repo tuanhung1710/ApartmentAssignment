@@ -133,6 +133,32 @@ public class UserDAO extends DBContext {
         return list;
     }
 
+    /**
+     * User đang active — dùng dropdown gán owner/tenant (UC-APT-06).
+     * Ưu tiên RESIDENT trước, sau đó role khác.
+     */
+    public List<User> findActiveUsers() {
+        List<User> list = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE is_active = 1 "
+                + "ORDER BY CASE WHEN role = 'RESIDENT' THEN 0 ELSE 1 END, full_name, username";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return list;
+            }
+            statement = connection.prepareStatement(sql);
+            resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                list.add(getFromResultSet(resultSet));
+            }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.findActiveUsers error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return list;
+    }
+
     public int insert(User user) {
         String sql = "INSERT INTO users (username, password, full_name, email, phone, role, department, is_active) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";

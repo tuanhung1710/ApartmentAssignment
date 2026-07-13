@@ -18,7 +18,7 @@ BEGIN
         CONSTRAINT CK_apartments_occupancy CHECK (occupancy_type IN ('OWNED', 'RENTED')),
         CONSTRAINT CK_apartments_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
         CONSTRAINT CK_apartments_floor CHECK (floor_number >= 0 AND floor_number <= 200),
-        CONSTRAINT CK_apartments_area CHECK (area_m2 > 0 AND area_m2 <= 10000)
+        CONSTRAINT CK_apartments_area CHECK (area_m2 >= 15 AND area_m2 <= 10000)
     );
 END
 GO

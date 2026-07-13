@@ -188,7 +188,7 @@
 | E006 | Thiếu tòa nhà | Vui lòng nhập tòa nhà. |
 | E007 | Tòa nhà quá dài | Tên tòa nhà tối đa 50 ký tự. |
 | E008 | Thiếu / sai tầng | Tầng phải là số nguyên từ 0 đến 200. |
-| E009 | Thiếu / sai diện tích | Diện tích phải là số lớn hơn 0 (tối đa 10.000 m²). |
+| E009 | Thiếu / sai diện tích | Diện tích phải từ 15 m² trở lên (tối đa 10.000 m²). |
 | E010 | Sai loại hình | Loại hình sử dụng không hợp lệ (OWNED / RENTED). |
 | E011 | Sai trạng thái | Trạng thái không hợp lệ (ACTIVE / INACTIVE). |
 | E012 | Ghi chú quá dài | Ghi chú tối đa 500 ký tự. |

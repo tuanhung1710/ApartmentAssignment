@@ -51,5 +51,10 @@ public final class AppConstants {
     public static final String APT_STATUS_ACTIVE = "ACTIVE";
     public static final String APT_STATUS_INACTIVE = "INACTIVE";
 
+    /** Role trong căn (apartment_residents.role_in_apartment) */
+    public static final String APT_ROLE_OWNER = "OWNER";
+    public static final String APT_ROLE_TENANT_REP = "TENANT_REP";
+    public static final String APT_ROLE_TENANT = "TENANT";
+
     public static final int DEFAULT_PAGE_SIZE = 10;
 }

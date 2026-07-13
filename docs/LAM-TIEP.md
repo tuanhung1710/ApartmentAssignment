@@ -13,7 +13,7 @@
 | Nhánh local | `tv2` (đã tạo; push GitHub có thể chưa được nếu thiếu quyền) |
 | Stack | NetBeans Ant · Tomcat **10** · Jakarta · SQL Server · JDBC · Lombok · JSP |
 | Module bạn | **TV2 – Căn hộ** |
-| UC đã làm | UC-01..04 + **UC-05 Chi tiết căn hộ** |
+| UC đã làm | **UC-01..10** (căn + owner/tenant + TV + list TV) · Permission matrix · BR tổng hợp |
 
 ---
 
@@ -34,15 +34,29 @@
 - [x] `uc-apt-03-vo-hieu-hoa-can-ho.md` — UC-APT-03
 - [x] `uc-apt-04-danh-sach-can-ho.md` — UC-APT-04
 - [x] `uc-apt-05-chi-tiet-can-ho.md` — UC-APT-05
+- [x] `uc-apt-06-gan-chu-so-huu.md` — UC-APT-06
+- [x] `uc-apt-07-gan-nguoi-thue.md` — UC-APT-07
+- [x] `uc-apt-08-them-thanh-vien.md` — UC-APT-08
+- [x] `uc-apt-09-cap-nhat-xoa-thanh-vien.md` — UC-APT-09
+- [x] `uc-apt-10-danh-sach-thanh-vien.md` — UC-APT-10
+- [x] `permission-matrix-apartment.md` — Task 14
+- [x] `business-rules-apartment-module.md` — Task 15
 - [x] `coding-standards.md` (root)
 - [x] `LAM-TIEP.md` — file này
 
 ### Chưa xong / việc tiếp
-- [ ] Run app + smoke list + **detail** (chủ/thuê/thành viên/lịch sử empty OK)
+- [ ] Run app + smoke members list / export / full module
 - [x] UC **Sửa / cập nhật căn hộ** (UC-APT-02)
 - [x] UC **Vô hiệu hóa / Xóa** căn hộ (UC-APT-03)
 - [x] UC **Danh sách căn hộ** (UC-APT-04)
 - [x] UC **Chi tiết căn hộ** (UC-APT-05)
+- [x] UC **Gán chủ sở hữu** (UC-APT-06)
+- [x] UC **Gán người thuê** (UC-APT-07)
+- [x] UC **Thêm thành viên** (UC-APT-08)
+- [x] UC **Cập nhật / Soft delete thành viên** (UC-APT-09)
+- [x] UC **Danh sách thành viên + Export** (UC-APT-10)
+- [x] Permission Matrix (Task 14)
+- [x] Business Rules tổng hợp (Task 15)
 - [ ] Gán cư dân / Căn hộ của tôi (nếu đề yêu cầu)
 - [ ] Push nhánh `tv2` lên GitHub (cần quyền Collaborator)
 
@@ -188,4 +202,9 @@ Mỗi lần làm xong 1 phần, sửa mục **2. Đã xong** (tick thêm) và gh
 - 2026-07-12: UC-APT-03 Vô hiệu hóa/Xóa — BR docs + deactivate/activate/delete + audit console + list buttons.
 - 2026-07-12: UC-APT-04 Danh sách — filter/search/sort/pagination/empty/loading + docs.
 - 2026-07-12: UC-APT-05 Chi tiết — detail.jsp + residents/members/history DAO + role check + coding-standards.
+- 2026-07-13: UC-APT-06 Gán chủ sở hữu — 1 owner current, end old + insert new, assign-owner.jsp.
+- 2026-07-14: UC-APT-07 Gán người thuê — TENANT_REP (1) / TENANT (N), start/end date, status CURRENT.
+- 2026-07-14: UC-APT-08 Thêm thành viên — relationship, CCCD, phone, DOB + validate.
+- 2026-07-14: UC-APT-09 Update/Remove member — soft delete is_active=0 + audit + edit form.
+- 2026-07-14: UC-APT-10 list members + CSV export; Task 14 permission matrix; Task 15 BR tổng hợp.
 Đã xong UC Đăng nhập, hôm sau làm tiếp UC Giỏ hàng

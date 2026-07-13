@@ -144,16 +144,16 @@
 
 ---
 
-## TC-APT-C-008 – Area biên 0.01
+## TC-APT-C-008 – Area biên 15
 
 | Hạng mục | Nội dung |
 |----------|----------|
 | **Test ID** | TC-APT-C-008 |
 | **Type** | Positive · Boundary |
 | **Priority** | P1 |
-| **Test Scenario** | areaM2 = 0.01 hợp lệ |
+| **Test Scenario** | areaM2 = 15 hợp lệ (tối thiểu) |
 | **Preconditions** | Login manager; mã `S-001` chưa có |
-| **Test Steps** | DT = `0.01` + field hợp lệ → Lưu |
+| **Test Steps** | DT = `15` + field hợp lệ → Lưu |
 | **Expected Result** | Thành công |
 | **Status** | ⬜ |
 
@@ -366,7 +366,7 @@
 | **Test Scenario** | areaM2 = 0 không hợp lệ |
 | **Preconditions** | Login manager |
 | **Test Steps** | DT = `0` → Lưu |
-| **Expected Result** | *Diện tích phải là số lớn hơn 0...*; không insert |
+| **Expected Result** | *Diện tích phải từ 15 m² trở lên...*; không insert |
 | **Status** | ⬜ |
 
 ---

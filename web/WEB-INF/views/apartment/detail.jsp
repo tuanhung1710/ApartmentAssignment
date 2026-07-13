@@ -154,8 +154,17 @@
 <div class="row g-3 mb-3">
     <div class="col-md-6">
         <div class="card shadow-sm h-100">
-            <div class="card-header bg-white fw-semibold">
-                <i class="bi bi-person-badge me-1"></i> Chủ sở hữu
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-person-badge me-1"></i> Chủ sở hữu</span>
+                <c:if test="${canManage}">
+                    <a class="btn btn-sm btn-outline-primary"
+                       href="${pageContext.request.contextPath}/apartment?action=assign-owner&amp;id=${apartment.apartmentId}">
+                        <c:choose>
+                            <c:when test="${empty owners}">Gán owner</c:when>
+                            <c:otherwise>Đổi owner</c:otherwise>
+                        </c:choose>
+                    </a>
+                </c:if>
             </div>
             <div class="card-body">
                 <c:choose>
@@ -163,6 +172,13 @@
                         <div class="text-muted small py-3 text-center">
                             <i class="bi bi-person-x d-block mb-1 fs-4"></i>
                             Chưa gán chủ sở hữu
+                            <c:if test="${canManage}">
+                                <div class="mt-2">
+                                    <a href="${pageContext.request.contextPath}/apartment?action=assign-owner&amp;id=${apartment.apartmentId}">
+                                        Gán chủ sở hữu
+                                    </a>
+                                </div>
+                            </c:if>
                         </div>
                     </c:when>
                     <c:otherwise>
@@ -191,8 +207,14 @@
     </div>
     <div class="col-md-6">
         <div class="card shadow-sm h-100">
-            <div class="card-header bg-white fw-semibold">
-                <i class="bi bi-people me-1"></i> Người thuê
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-people me-1"></i> Người thuê</span>
+                <c:if test="${canManage}">
+                    <a class="btn btn-sm btn-outline-primary"
+                       href="${pageContext.request.contextPath}/apartment?action=assign-tenant&amp;id=${apartment.apartmentId}">
+                        Gán thuê
+                    </a>
+                </c:if>
             </div>
             <div class="card-body">
                 <c:choose>
@@ -200,6 +222,13 @@
                         <div class="text-muted small py-3 text-center">
                             <i class="bi bi-person-x d-block mb-1 fs-4"></i>
                             Chưa gán người thuê
+                            <c:if test="${canManage}">
+                                <div class="mt-2">
+                                    <a href="${pageContext.request.contextPath}/apartment?action=assign-tenant&amp;id=${apartment.apartmentId}">
+                                        Gán người thuê
+                                    </a>
+                                </div>
+                            </c:if>
                         </div>
                     </c:when>
                     <c:otherwise>
@@ -207,10 +236,18 @@
                             <div class="border rounded p-2 mb-2">
                                 <div class="fw-semibold">
                                     <c:out value="${empty t.fullName ? '—' : t.fullName}"/>
+                                    <c:choose>
+                                        <c:when test="${t.roleInApartment == 'TENANT_REP'}">
+                                            <span class="badge text-bg-info">Đại diện</span>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <span class="badge text-bg-secondary">Thuê</span>
+                                        </c:otherwise>
+                                    </c:choose>
                                 </div>
                                 <div class="small text-muted">
                                     @<c:out value="${empty t.username ? '—' : t.username}"/>
-                                    · role: ${t.roleInApartment}
+                                    · ${t.roleInApartment}
                                 </div>
                                 <div class="small">
                                     Từ:
@@ -218,6 +255,12 @@
                                         <c:when test="${empty t.startDate}">—</c:when>
                                         <c:otherwise>${t.startDate}</c:otherwise>
                                     </c:choose>
+                                    →
+                                    <c:choose>
+                                        <c:when test="${empty t.endDate}">đang mở</c:when>
+                                        <c:otherwise>${t.endDate}</c:otherwise>
+                                    </c:choose>
+                                    · <span class="badge text-bg-success">CURRENT</span>
                                 </div>
                             </div>
                         </c:forEach>
@@ -232,7 +275,15 @@
 <div class="card shadow-sm mb-3">
     <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
         <span><i class="bi bi-house-heart me-1"></i> Thành viên hộ</span>
-        <span class="badge text-bg-light text-dark">${empty members ? 0 : members.size()}</span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge text-bg-light text-dark">${empty members ? 0 : members.size()}</span>
+            <c:if test="${canManage}">
+                <a class="btn btn-sm btn-outline-primary"
+                   href="${pageContext.request.contextPath}/apartment?action=add-member&amp;id=${apartment.apartmentId}">
+                    <i class="bi bi-person-plus"></i> Thêm TV
+                </a>
+            </c:if>
+        </div>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -245,20 +296,27 @@
                     <th>CCCD/CMND</th>
                     <th>Ngày sinh</th>
                     <th>TT</th>
+                    <c:if test="${canManage}"><th style="min-width:140px;">Thao tác</th></c:if>
                 </tr>
                 </thead>
                 <tbody>
                 <c:choose>
                     <c:when test="${empty members}">
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-4">
+                            <td colspan="${canManage ? 7 : 6}" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox me-1"></i> Chưa có thành viên hộ
+                                <c:if test="${canManage}">
+                                    ·
+                                    <a href="${pageContext.request.contextPath}/apartment?action=add-member&amp;id=${apartment.apartmentId}">
+                                        Thêm thành viên
+                                    </a>
+                                </c:if>
                             </td>
                         </tr>
                     </c:when>
                     <c:otherwise>
                         <c:forEach var="m" items="${members}">
-                            <tr>
+                            <tr class="${m.isActive ? '' : 'table-secondary'}">
                                 <td class="fw-semibold"><c:out value="${m.fullName}"/></td>
                                 <td><c:out value="${empty m.relationship ? '—' : m.relationship}"/></td>
                                 <td><c:out value="${empty m.phone ? '—' : m.phone}"/></td>
@@ -279,6 +337,27 @@
                                         </c:otherwise>
                                     </c:choose>
                                 </td>
+                                <c:if test="${canManage}">
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <a class="btn btn-sm btn-outline-primary"
+                                               href="${pageContext.request.contextPath}/apartment?action=edit-member&amp;apartmentId=${apartment.apartmentId}&amp;memberId=${m.memberId}">
+                                                Sửa
+                                            </a>
+                                            <c:if test="${m.isActive}">
+                                                <form method="post"
+                                                      action="${pageContext.request.contextPath}/apartment"
+                                                      class="d-inline"
+                                                      onsubmit="return confirm('Gỡ thành viên ${m.fullName}? (Soft delete – giữ lịch sử, is_active=0)');">
+                                                    <input type="hidden" name="action" value="remove-member">
+                                                    <input type="hidden" name="apartmentId" value="${apartment.apartmentId}">
+                                                    <input type="hidden" name="memberId" value="${m.memberId}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Gỡ</button>
+                                                </form>
+                                            </c:if>
+                                        </div>
+                                    </td>
+                                </c:if>
                             </tr>
                         </c:forEach>
                     </c:otherwise>
@@ -356,7 +435,7 @@
 <c:if test="${canManage}">
     <div class="alert alert-light border small mb-0">
         <i class="bi bi-lightbulb me-1"></i>
-        Gán chủ / người thuê / thành viên: module gán cư dân (UC riêng).
-        Màn này chỉ <strong>hiển thị</strong> dữ liệu đã có.
+        <strong>Gán owner</strong> (UC-06) · <strong>Gán thuê</strong> (UC-07) ·
+        <strong>Thành viên</strong> thêm/sửa/gỡ soft-delete (UC-08/09) đã có.
     </div>
 </c:if>

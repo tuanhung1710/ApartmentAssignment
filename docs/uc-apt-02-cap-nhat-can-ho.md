@@ -118,7 +118,7 @@
 | BR-U03 | Khóa cập nhật theo **`apartment_id`** (PK). |
 | BR-U04 | `occupancy_type` ∈ {OWNED, RENTED}. |
 | BR-U05 | `status` ∈ {ACTIVE, INACTIVE}. |
-| BR-U06 | `floor_number` ∈ [0, 200]; `area_m2` ∈ (0, 10000]. |
+| BR-U06 | `floor_number` ∈ [0, 200]; `area_m2` ∈ [15, 10000]. |
 | BR-U07 | Cập nhật **không** tự đổi quan hệ cư dân (module gán cư dân tách). |
 | BR-U08 | STAFF chỉ xem list (nếu được); không edit. |
 
@@ -132,7 +132,7 @@
 | `apartmentCode` | — | **Không nhận sửa** (bỏ qua input nếu client cố gửi) | — |
 | `building` | Yes | trim, 1–50 ký tự | Vui lòng nhập tòa nhà. / tối đa 50 ký tự |
 | `floorNumber` | Yes | Integer 0–200 | Tầng phải là số nguyên từ 0 đến 200. |
-| `areaM2` | Yes | Decimal 0.01–10000, scale 2 | Diện tích phải là số lớn hơn 0 (tối đa 10.000 m²). |
+| `areaM2` | Yes | Decimal 15–10000, scale 2 | Diện tích phải từ 15 m² trở lên (tối đa 10.000 m²). |
 | `occupancyType` | Yes | OWNED \| RENTED | Loại hình sử dụng không hợp lệ… |
 | `status` | Yes* | ACTIVE \| INACTIVE (*default ACTIVE nếu rỗng) | Trạng thái không hợp lệ… |
 | `notes` | No | ≤ 500 | Ghi chú tối đa 500 ký tự. |

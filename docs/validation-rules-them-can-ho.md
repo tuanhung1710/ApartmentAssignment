@@ -104,19 +104,21 @@
 
 | Rule ID | Rule | Chi tiết | Message |
 |---------|------|----------|---------|
-| VR-AREA-01 | Required | Parse được `BigDecimal` | Diện tích phải là số lớn hơn 0 (tối đa 10.000 m²). |
+| VR-AREA-01 | Required | Parse được `BigDecimal` | Diện tích phải từ 15 m² trở lên (tối đa 10.000 m²). |
 | VR-AREA-02 | **Data format** | Số thập phân; cho phép `,` → `.` trước parse | Cùng VR-AREA-01 |
 | VR-AREA-03 | Scale | Làm tròn **2** chữ số thập phân (`HALF_UP`) khi bind | (im lặng) |
-| VR-AREA-04 | **Min boundary** | ≥ **0.01** (strict > 0 trong thực tế code so với `0.01`) | Cùng VR-AREA-01 |
+| VR-AREA-04 | **Min boundary** | ≥ **15** m² | Cùng VR-AREA-01 |
 | VR-AREA-05 | **Max boundary** | ≤ **10000** | Cùng VR-AREA-01 |
-| VR-AREA-06 | Không âm / zero | `0`, `-1` fail | Cùng VR-AREA-01 |
+| VR-AREA-06 | Dưới min / âm / zero | `0`, `14.99`, `-1` fail | Cùng VR-AREA-01 |
 
 ### Boundary Area
 
 | Giá trị | Kết quả |
 |---------|---------|
 | `0` | Fail |
-| `0.01` | Pass (biên dưới) |
+| `14.99` | Fail (dưới min) |
+| `15` | Pass (biên dưới) |
+| `15.00` | Pass (biên dưới) |
 | `75.5` | Pass |
 | `10000` | Pass (biên trên) |
 | `10000.01` | Fail |
@@ -209,7 +211,7 @@
 | `apartmentCode` length | 1 | 20 | 0 | 21 |
 | `building` length | 1 | 50 | 0 | 51 |
 | `floorNumber` | 0 | 200 | -1 | 201 |
-| `areaM2` | 0.01 | 10000 | 0, -1 | 10000.01 |
+| `areaM2` | 15 | 10000 | 14.99, 0, -1 | 10000.01 |
 | `notes` length | 0 | 500 | — | 501 |
 
 ---

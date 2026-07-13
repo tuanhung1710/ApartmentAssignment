@@ -90,7 +90,7 @@
                     </label>
                     <input type="number" class="form-control" id="areaM2" name="areaM2"
                            value="${form.areaM2}"
-                           min="0.01" max="10000" step="0.01" required
+                           min="15" max="10000" step="0.01" required
                            placeholder="VD: 75.50">
                 </div>
 
