@@ -188,3 +188,4 @@ Mỗi lần làm xong 1 phần, sửa mục **2. Đã xong** (tick thêm) và gh
 - 2026-07-12: UC-APT-03 Vô hiệu hóa/Xóa — BR docs + deactivate/activate/delete + audit console + list buttons.
 - 2026-07-12: UC-APT-04 Danh sách — filter/search/sort/pagination/empty/loading + docs.
 - 2026-07-12: UC-APT-05 Chi tiết — detail.jsp + residents/members/history DAO + role check + coding-standards.
+Đã xong UC Đăng nhập, hôm sau làm tiếp UC Giỏ hàng
