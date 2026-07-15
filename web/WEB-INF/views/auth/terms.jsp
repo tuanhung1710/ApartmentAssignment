@@ -92,10 +92,12 @@
 <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top py-2">
     <div class="container">
         <a class="navbar-brand text-primary-custom fw-bold fs-4 d-flex align-items-center"
-           href="${pageContext.request.contextPath}/auth?action=login">
+           href="${pageContext.request.contextPath}/auth?action=home">
             <i class="bi bi-buildings-fill fs-3 me-2"></i> Skyland Apartment
         </a>
-        <div class="ms-auto">
+        <div class="ms-auto d-flex flex-wrap gap-2">
+            <a class="btn btn-link text-primary-custom text-decoration-none"
+               href="${pageContext.request.contextPath}/auth?action=home">Trang chủ</a>
             <a class="btn btn-outline-primary-custom px-4 py-2 rounded-pill"
                href="${pageContext.request.contextPath}/auth?action=login">
                 <i class="bi bi-box-arrow-in-right me-1"></i> Đăng nhập
