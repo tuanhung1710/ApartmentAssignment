@@ -15,13 +15,14 @@
 ## 1. User Story
 
 **Là** Quản lý tòa nhà (Manager) hoặc Quản trị viên (Admin),  
-**tôi muốn** thêm một căn hộ mới vào hệ thống với mã căn, tòa nhà, tầng, diện tích và trạng thái,  
-**để** quản lý danh mục căn hộ, gán cư dân và tính phí dịch vụ sau này.
+**tôi muốn** thêm một căn hộ mới bằng cách nhập **tòa nhà + tầng** (và diện tích, loại hình…),  
+hệ thống **tự sinh mã căn**,  
+**để** quản lý danh mục căn hộ thống nhất theo format **`[tòa] - [tầng] [mã]`**.
 
 ### Giá trị nghiệp vụ
-- Chuẩn hóa dữ liệu căn hộ trước khi gán cư dân / tạo phí tháng.
-- Tránh trùng mã căn hộ trong cùng hệ thống.
-- Chỉ người có thẩm quyền mới được tạo căn hộ.
+- Chuẩn hóa định danh căn trước khi gán cư dân / tạo phí tháng.
+- Tránh trùng mã căn hộ trong cùng hệ thống (check trước insert).
+- User không tự gõ mã — giảm lỗi format / trùng tay.
 
 ---
 
@@ -40,15 +41,16 @@
 |------|--------|----------|
 | 1 | Manager/Admin chọn menu **Căn hộ** | Hiển thị danh sách căn hộ (`action=list`) |
 | 2 | Bấm nút **Thêm căn hộ** | Mở form tạo mới (`GET /apartment?action=create`) |
-| 3 | Nhập: Mã căn, Tòa nhà, Tầng, Diện tích, Loại hình, Trạng thái, Ghi chú | Validate client-side (required, min, pattern) |
+| 3 | Nhập: **Tòa nhà, Tầng**, Diện tích, Loại hình, Trạng thái, Ghi chú (không nhập mã) | Validate client-side (required, min) |
 | 4 | Bấm **Lưu** | `POST /apartment` với `action=create` |
 | 5 | — | Kiểm tra role ADMIN/MANAGER |
-| 6 | — | Validate server-side toàn bộ field |
-| 7 | — | Kiểm tra `apartment_code` chưa tồn tại |
-| 8 | — | Insert bản ghi vào bảng `apartments` (`status` mặc định ACTIVE nếu để trống) |
-| 9 | — | Flash success: *Thêm căn hộ thành công.* |
-| 10 | — | Redirect về danh sách căn hộ (`action=list`) |
-| 11 | Xem thông báo thành công + căn mới trong list | — |
+| 6 | — | Validate server-side (building, floor, area…) |
+| 7 | — | **Sinh** `apartment_code` từ tòa + tầng + unit (vd. `A-0401`) |
+| 8 | — | Kiểm tra mã sinh ra **chưa tồn tại**; nếu trùng → lỗi + giữ form |
+| 9 | — | Insert `apartments` (`status` mặc định ACTIVE) |
+| 10 | — | Flash success kèm định danh: *Thêm căn hộ thành công. Mã: A - 4 A-0401.* |
+| 11 | — | Redirect chi tiết / list |
+| 12 | Xem căn mới hiển thị format `[tòa] - [tầng] [mã]` | — |
 
 ---
 
@@ -86,10 +88,10 @@
 - Hệ thống forward **403** hoặc flash error + redirect dashboard/list (theo rule controller).
 - Message: *Bạn không có quyền thêm căn hộ.*
 
-### EF-03: Trùng mã căn hộ
-- `apartment_code` đã tồn tại trong DB.
-- Flash/error: *Mã căn hộ đã tồn tại.*
-- Giữ form + dữ liệu đã nhập.
+### EF-03: Trùng mã căn hộ (sau khi hệ thống sinh mã)
+- Mã sinh ra (`apartment_code`) đã tồn tại trong DB.
+- Error: *Đã tồn tại căn hộ với mã A-0401 (A - 4 A-0401).*
+- Giữ form + tòa/tầng/area đã nhập (không hiện mã user nhập).
 
 ### EF-04: Lỗi database / insert thất bại
 - JDBC exception, connection null, executeUpdate = 0.

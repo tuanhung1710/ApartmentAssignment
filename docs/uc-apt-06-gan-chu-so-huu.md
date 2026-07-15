@@ -42,6 +42,8 @@
 | **BR-O09** | Căn **INACTIVE**: vẫn cho gán (MVP) nhưng nên cảnh báo; hard rule: căn phải tồn tại. |
 | **BR-O10** | Gán owner **không** tự đổi `occupancy_type` căn (OWNED/RENTED giữ nguyên — module khác). |
 | **BR-O11** | Ghi **lịch sử** căn (history): action `ASSIGN_OWNER` / `CHANGE_OWNER`. |
+| **BR-O12** | Sync TV: nếu owner **đã có** trong `household_members` (trùng fullName active) → **không insert** thêm; thông báo *đã có trong thành viên hộ — không thêm mới*. Chưa có → thêm 1 dòng quan hệ **Chủ hộ**. |
+| **BR-O13** | Form gán: **User có sẵn** hoặc **Người mới** (tạo RESIDENT + gán). Gợi ý từ thành viên hộ. Pass mặc định `123456`. |
 
 ### Một căn có bao nhiêu Owner?
 

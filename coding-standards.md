@@ -89,10 +89,10 @@ Trả lời trước khi gõ code:
 | URL? | `/apartment` |
 | action GET? | `create` (mở form) |
 | action POST? | `create` (lưu) |
-| Field nào? | code, building, floor, area, occupancy, status, notes |
-| Validate gì? | required, format, min/max, unique |
+| Field nào? | building, floor, area, occupancy, status, notes (**mã tự sinh**) |
+| Validate gì? | required tòa/tầng/area, min/max, unique mã sinh ra |
 | Message lỗi/thành công? | xem US-APT-01 |
-| Sau OK đi đâu? | redirect list + flash |
+| Sau OK đi đâu? | redirect detail/list + flash (kèm định danh) |
 
 ### Bước 2 — DB
 
@@ -289,21 +289,19 @@ public class ApartmentDAO extends DBContext {
         }
     }
 
-    // 5) UPDATE
+    // 5) UPDATE — không đổi apartment_code / building / floor_number
+    // Định danh: [tòa] - [tầng] [mã căn]
     public boolean update(Apartment a) {
-        String sql = "UPDATE apartments SET building = ?, floor_number = ?, area_m2 = ?, "
-                + "occupancy_type = ?, status = ?, notes = ?, updated_at = SYSUTCDATETIME() "
-                + "WHERE apartment_id = ?";
+        String sql = "UPDATE apartments SET area_m2 = ?, occupancy_type = ?, status = ?, notes = ?, "
+                + "updated_at = SYSUTCDATETIME() WHERE apartment_id = ?";
         try {
             connection = getConnection();
             statement = connection.prepareStatement(sql);
-            statement.setString(1, a.getBuilding());
-            statement.setInt(2, a.getFloorNumber());
-            statement.setBigDecimal(3, a.getAreaM2());
-            statement.setString(4, a.getOccupancyType());
-            statement.setString(5, a.getStatus());
-            statement.setString(6, a.getNotes());
-            statement.setInt(7, a.getApartmentId());
+            statement.setBigDecimal(1, a.getAreaM2());
+            statement.setString(2, a.getOccupancyType());
+            statement.setString(3, a.getStatus());
+            statement.setString(4, a.getNotes());
+            statement.setInt(5, a.getApartmentId());
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("ApartmentDAO.update error: " + e.getMessage());
@@ -507,24 +505,28 @@ private boolean canManageApartment(String role) {
 
 ```java
 private Apartment bindForm(HttpServletRequest request) {
-    String code = trim(request.getParameter("apartmentCode"));
+    // Create: KHÔNG lấy apartmentCode từ client — server tự sinh
     String building = trim(request.getParameter("building"));
     // parse số cẩn thận — lỗi parse để null, validate sẽ bắt
     return Apartment.builder()
-            .apartmentCode(code)
             .building(building)
-            // ...
+            // floor, area, occupancy, status, notes...
             .build();
 }
 
 private List<String> validateCreate(Apartment form) {
     List<String> errors = new ArrayList<>();
-    if (form.getApartmentCode() == null || form.getApartmentCode().isEmpty()) {
-        errors.add("Vui lòng nhập mã căn hộ.");
+    // Không validate mã user nhập — mã do generateApartmentCode()
+    if (form.getBuilding() == null || form.getBuilding().isEmpty()) {
+        errors.add("Vui lòng nhập tòa nhà.");
     }
-    // thêm rule...
+    // floor, area, occupancy...
     return errors;
 }
+
+// Sinh mã: {TOKEN}-{FF}{UU}  (A tầng 4 unit 1 → A-0401)
+// Hiển thị: [tòa] - [tầng] [mã]  (A - 4 A-0401)
+// Trùng → "Đã tồn tại căn hộ với mã ..."
 ```
 
 ### 7.9. Phân trang + filter (khi list dài)
@@ -587,9 +589,10 @@ JSP pagination (giữ filter bằng `c:url` + `c:param`):
 <form method="post" action="${pageContext.request.contextPath}/apartment">
     <input type="hidden" name="action" value="create">
 
-    <label class="form-label">Mã căn hộ <span class="text-danger">*</span></label>
-    <input class="form-control" type="text" name="apartmentCode"
-           value="${form.apartmentCode}" required maxlength="20">
+    <label class="form-label">Tòa nhà <span class="text-danger">*</span></label>
+    <input class="form-control" type="text" name="building"
+           value="${form.building}" required maxlength="50">
+    <%-- Mã căn: server tự sinh từ tòa + tầng; không có input apartmentCode khi create --%>
 
     <button type="submit" class="btn btn-primary">Lưu</button>
     <a class="btn btn-outline-secondary"
@@ -601,9 +604,10 @@ JSP pagination (giữ filter bằng `c:url` + `c:param`):
 
 | JSP `name` | Controller `getParameter` | Model setter/field |
 |------------|---------------------------|--------------------|
-| `apartmentCode` | `"apartmentCode"` | `apartmentCode` |
+| `building` | `"building"` | `building` |
 | `floorNumber` | `"floorNumber"` | `floorNumber` |
 | `areaM2` | `"areaM2"` | `areaM2` |
+| *(create: không có `apartmentCode`)* | server `generateApartmentCode` | `apartmentCode` |
 
 Sai 1 ký tự → nhận `null` / rỗng.
 
@@ -615,8 +619,10 @@ Sai 1 ký tự → nhận `null` / rỗng.
     <tbody>
     <c:forEach var="apt" items="${apartments}">
         <tr>
-            <td>${apt.apartmentCode}</td>
-            <td>${apt.building}</td>
+            <td>
+                <%-- Định danh: [tòa] - [tầng] [mã] --%>
+                ${apt.building} - ${apt.floorNumber} ${apt.apartmentCode}
+            </td>
             <td>
                 <a href="${pageContext.request.contextPath}/apartment?action=edit&id=${apt.apartmentId}">
                     Sửa
@@ -752,12 +758,24 @@ Jar `lombok-*.jar` đã có trong Libraries.
 
 Làm theo đúng chuẩn — copy khung, đừng invent style mới.
 
-### 12.1. BA nhanh
+### 12.0. Định danh căn (toàn module)
+
+| Mục | Quy ước |
+|-----|---------|
+| Hiển thị | **`[tên tòa] - [số tầng] [mã căn]`** · vd. `A - 4 A-0401` |
+| Mã lưu DB | `{TOKEN}-{FF}{UU}` · vd. tòa A, tầng 4, unit 01 → **`A-0401`** |
+| Create | User **chỉ nhập** tòa + tầng (+ area…); **không** nhập mã |
+| Sinh mã | Server: token từ tên tòa + floor 2 số + unit 2 số (tăng nếu trùng) |
+| Trùng mã | Chặn insert + message *Đã tồn tại căn hộ với mã …* |
+| Update | **Không** đổi code / building / floor |
+
+### 12.1. BA nhanh (Sửa)
 
 - Actor: ADMIN, MANAGER
 - GET `/apartment?action=edit&id=1` → form có data cũ
-- POST `action=update` → validate → update DB → redirect list
-- Không cho đổi `apartmentCode` (hoặc cho nhưng check unique khác id)
+- POST `action=update` → validate → update DB → redirect
+- **Không cho đổi định danh căn**: `apartmentCode` + `building` + `floorNumber`
+- Field **được sửa**: `areaM2`, `occupancyType`, `status`, `notes`
 
 ### 12.2. DAO thêm
 
@@ -789,14 +807,21 @@ else set form + forward form.jsp (có thể tái sử dụng form create)
 
 ```text
 requireUser → canManage → bind (có apartmentId)
-→ validate → (check unique nếu đổi code)
-→ dao.update → success redirect list / fail forward form
+→ load existing by id
+→ GHI ĐÈ identity từ DB: code + building + floor (bỏ qua input client)
+→ validate (area/occupancy/status/notes; identity đã lấy từ DB)
+→ dao.update (SQL KHÔNG set building/floor/code)
+→ success redirect / fail forward form
 ```
 
-### 12.4. JSP
+### 12.4. JSP (form edit)
 
 - Form dùng chung: hidden `apartmentId`
 - hidden `action` = `update` khi sửa, `create` khi thêm
+- **Edit mode**:
+  - Dòng định danh readonly: `${form.building} - ${form.floorNumber} ${form.apartmentCode}`
+  - `apartmentCode`, `building`, `floorNumber`: `readonly` (không sửa)
+  - Chỉ `areaM2` (+ occupancy/status/notes) là input được sửa
 - List thêm nút:
 
 ```jsp
@@ -805,11 +830,12 @@ requireUser → canManage → bind (có apartmentId)
 
 ### 12.5. Test
 
-1. Sửa thành công
+1. Sửa diện tích / notes thành công; mã–tòa–tầng giữ nguyên
 2. id không tồn tại
 3. STAFF không sửa được
-4. Validate area/floor
-5. F5 sau success không tạo bản ghi mới / không update 2 lần
+4. Validate area (identity không validate từ input user khi update)
+5. F5 sau success không update 2 lần
+6. Client cố POST building/floor/code giả → server bỏ qua, DB identity không đổi
 
 ---
 

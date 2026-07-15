@@ -13,8 +13,8 @@
         </h2>
         <p class="text-muted small mb-0">
             <c:choose>
-                <c:when test="${isEdit}">Chỉnh sửa thông tin căn hộ (mã căn không đổi)</c:when>
-                <c:otherwise>Nhập thông tin căn hộ mới vào hệ thống</c:otherwise>
+                <c:when test="${isEdit}">Chỉnh sửa thông tin căn hộ (mã căn / tòa / tầng không đổi)</c:when>
+                <c:otherwise>Nhập tòa nhà + tầng — hệ thống tự sinh mã căn theo format [tòa] - [tầng] [mã]</c:otherwise>
             </c:choose>
         </p>
     </div>
@@ -44,55 +44,72 @@
             </c:if>
 
             <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label" for="apartmentCode">
-                        Mã căn hộ
-                        <c:if test="${!isEdit}"><span class="text-danger">*</span></c:if>
-                    </label>
-                    <input type="text" class="form-control" id="apartmentCode" name="apartmentCode"
-                           value="${form.apartmentCode}"
-                           maxlength="20"
-                           placeholder="VD: A-1201"
-                           pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,19}"
-                           <c:if test="${isEdit}">readonly</c:if>
-                           <c:if test="${!isEdit}">required</c:if>>
-                    <div class="form-text">
-                        <c:choose>
-                            <c:when test="${isEdit}">Mã căn không thể thay đổi sau khi tạo</c:when>
-                            <c:otherwise>Chữ, số, - hoặc _ · tối đa 20 ký tự · không trùng</c:otherwise>
-                        </c:choose>
-                    </div>
-                </div>
+                <c:choose>
+                    <c:when test="${isEdit}">
+                        <%-- Định danh đồng bộ: [tòa] - [tầng] [mã] — không sửa --%>
+                        <div class="col-md-8">
+                            <label class="form-label">Định danh căn hộ</label>
+                            <input type="text" class="form-control bg-light" readonly
+                                   value="${form.building} - ${form.floorNumber} ${form.apartmentCode}">
+                            <div class="form-text">
+                                Format: [tên tòa] - [số tầng] [mã căn] · không thể thay đổi sau khi tạo
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="areaM2">
+                                Diện tích (m²) <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" class="form-control" id="areaM2" name="areaM2"
+                                   value="${form.areaM2}"
+                                   min="15" max="10000" step="0.01" required
+                                   placeholder="VD: 75.50">
+                        </div>
+                    </c:when>
+                    <c:otherwise>
+                        <%-- Create: chỉ nhập tòa + tầng; mã căn tự sinh server-side --%>
+                        <div class="col-md-4">
+                            <label class="form-label" for="building">
+                                Tòa nhà <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="building" name="building"
+                                   value="${form.building}"
+                                   maxlength="50" required
+                                   placeholder="VD: A hoặc Tòa A">
+                            <div class="form-text">Dùng để sinh mã căn (vd: A → A-0401)</div>
+                        </div>
 
-                <div class="col-md-4">
-                    <label class="form-label" for="building">
-                        Tòa nhà <span class="text-danger">*</span>
-                    </label>
-                    <input type="text" class="form-control" id="building" name="building"
-                           value="${form.building}"
-                           maxlength="50" required
-                           placeholder="VD: Tòa A">
-                </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="floorNumber">
+                                Tầng <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" class="form-control" id="floorNumber" name="floorNumber"
+                                   value="${form.floorNumber}"
+                                   min="0" max="200" step="1" required
+                                   placeholder="0 = trệt">
+                        </div>
 
-                <div class="col-md-4">
-                    <label class="form-label" for="floorNumber">
-                        Tầng <span class="text-danger">*</span>
-                    </label>
-                    <input type="number" class="form-control" id="floorNumber" name="floorNumber"
-                           value="${form.floorNumber}"
-                           min="0" max="200" step="1" required
-                           placeholder="0 = trệt">
-                </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="areaM2">
+                                Diện tích (m²) <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" class="form-control" id="areaM2" name="areaM2"
+                                   value="${form.areaM2}"
+                                   min="15" max="10000" step="0.01" required
+                                   placeholder="VD: 75.50">
+                        </div>
 
-                <div class="col-md-4">
-                    <label class="form-label" for="areaM2">
-                        Diện tích (m²) <span class="text-danger">*</span>
-                    </label>
-                    <input type="number" class="form-control" id="areaM2" name="areaM2"
-                           value="${form.areaM2}"
-                           min="15" max="10000" step="0.01" required
-                           placeholder="VD: 75.50">
-                </div>
+                        <div class="col-12">
+                            <div class="alert alert-light border small mb-0">
+                                <i class="bi bi-info-circle me-1"></i>
+                                <strong>Mã căn tự động:</strong>
+                                hệ thống sinh theo format
+                                <code>[tên tòa] - [số tầng] [mã căn]</code>
+                                (vd: tòa <strong>A</strong>, tầng <strong>4</strong> →
+                                <code>A - 4 A-0401</code>). Không cho thêm nếu mã đã tồn tại.
+                            </div>
+                        </div>
+                    </c:otherwise>
+                </c:choose>
 
                 <div class="col-md-4">
                     <label class="form-label" for="occupancyType">

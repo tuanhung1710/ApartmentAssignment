@@ -9,9 +9,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * DAO căn hộ – US-APT-01 Thêm căn hộ (+ list tối thiểu để quay về sau create).
- */
+/** DAO căn hộ: CRUD, filter/sort/page, status, delete. */
 public class ApartmentDAO extends DBContext {
 
     public Apartment getFromResultSet(ResultSet rs) throws SQLException {
@@ -43,6 +41,31 @@ public class ApartmentDAO extends DBContext {
         } finally {
             closeResources();
         }
+    }
+
+    /**
+     * Số căn cùng tòa + tầng (để sinh số thứ tự unit trong mã căn).
+     */
+    public int countByBuildingAndFloor(String building, int floorNumber) {
+        String sql = "SELECT COUNT(*) FROM apartments WHERE building = ? AND floor_number = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return 0;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, building);
+            statement.setInt(2, floorNumber);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.countByBuildingAndFloor error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return 0;
     }
 
     /**
@@ -225,14 +248,14 @@ public class ApartmentDAO extends DBContext {
     }
 
     /**
-     * Cập nhật căn hộ – không đổi apartment_code (UC-APT-02).
+     * Cập nhật căn hộ – không đổi apartment_code / building / floor_number (UC-APT-02).
+     * Định danh nghiệp vụ: [tòa] - [tầng] [mã căn].
      *
      * @return true nếu có ít nhất 1 dòng được cập nhật
      */
     public boolean update(Apartment apartment) {
-        String sql = "UPDATE apartments SET building = ?, floor_number = ?, area_m2 = ?, "
-                + "occupancy_type = ?, status = ?, notes = ?, updated_at = SYSUTCDATETIME() "
-                + "WHERE apartment_id = ?";
+        String sql = "UPDATE apartments SET area_m2 = ?, occupancy_type = ?, status = ?, notes = ?, "
+                + "updated_at = SYSUTCDATETIME() WHERE apartment_id = ?";
         try {
             connection = getConnection();
             if (connection == null) {
@@ -240,17 +263,15 @@ public class ApartmentDAO extends DBContext {
                 return false;
             }
             statement = connection.prepareStatement(sql);
-            statement.setString(1, apartment.getBuilding());
-            statement.setInt(2, apartment.getFloorNumber());
-            statement.setBigDecimal(3, apartment.getAreaM2());
-            statement.setString(4, apartment.getOccupancyType());
-            statement.setString(5, apartment.getStatus());
+            statement.setBigDecimal(1, apartment.getAreaM2());
+            statement.setString(2, apartment.getOccupancyType());
+            statement.setString(3, apartment.getStatus());
             if (apartment.getNotes() == null || apartment.getNotes().isEmpty()) {
-                statement.setString(6, null);
+                statement.setString(4, null);
             } else {
-                statement.setString(6, apartment.getNotes());
+                statement.setString(4, apartment.getNotes());
             }
-            statement.setInt(7, apartment.getApartmentId());
+            statement.setInt(5, apartment.getApartmentId());
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("ApartmentDAO.update error: " + e.getMessage());

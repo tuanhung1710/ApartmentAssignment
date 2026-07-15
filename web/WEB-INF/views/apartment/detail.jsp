@@ -5,7 +5,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
     <div>
         <h2 class="h4 mb-1">
-            Căn hộ <span class="text-primary">${apartment.apartmentCode}</span>
+            Căn hộ <span class="text-primary">${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}</span>
             <c:choose>
                 <c:when test="${apartment.status == 'ACTIVE'}">
                     <span class="badge text-bg-success align-middle">ACTIVE</span>
@@ -16,7 +16,7 @@
             </c:choose>
         </h2>
         <p class="text-muted small mb-0">
-            ${apartment.building} · Tầng ${apartment.floorNumber}
+            ${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}
             ·
             <c:choose>
                 <c:when test="${apartment.occupancyType == 'OWNED'}">OWNED – Sở hữu</c:when>
@@ -37,7 +37,7 @@
             <c:choose>
                 <c:when test="${apartment.status == 'ACTIVE'}">
                     <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                          onsubmit="return confirm('Vô hiệu hóa căn ${apartment.apartmentCode}?');">
+                          onsubmit="return confirm('Vô hiệu hóa căn ${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}?');">
                         <input type="hidden" name="action" value="deactivate">
                         <input type="hidden" name="id" value="${apartment.apartmentId}">
                         <button type="submit" class="btn btn-sm btn-outline-warning">
@@ -47,7 +47,7 @@
                 </c:when>
                 <c:otherwise>
                     <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                          onsubmit="return confirm('Kích hoạt lại căn ${apartment.apartmentCode}?');">
+                          onsubmit="return confirm('Kích hoạt lại căn ${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}?');">
                         <input type="hidden" name="action" value="activate">
                         <input type="hidden" name="id" value="${apartment.apartmentId}">
                         <button type="submit" class="btn btn-sm btn-outline-success">
@@ -55,7 +55,7 @@
                         </button>
                     </form>
                     <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                          onsubmit="return confirm('XÓA VĨNH VIỄN căn ${apartment.apartmentCode}?');">
+                          onsubmit="return confirm('XÓA VĨNH VIỄN căn ${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}?');">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="${apartment.apartmentId}">
                         <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -75,15 +75,19 @@
     </div>
     <div class="card-body">
         <div class="row g-3">
-            <div class="col-md-3">
-                <div class="text-muted small">Mã căn</div>
-                <div class="fw-semibold">${apartment.apartmentCode}</div>
+            <div class="col-md-4">
+                <div class="text-muted small">Định danh căn hộ</div>
+                <div class="fw-semibold">${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}</div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
+                <div class="text-muted small">Mã căn</div>
+                <div>${apartment.apartmentCode}</div>
+            </div>
+            <div class="col-md-2">
                 <div class="text-muted small">Tòa nhà</div>
                 <div>${apartment.building}</div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="text-muted small">Tầng</div>
                 <div>${apartment.floorNumber}</div>
             </div>
@@ -157,13 +161,23 @@
             <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-person-badge me-1"></i> Chủ sở hữu</span>
                 <c:if test="${canManage}">
-                    <a class="btn btn-sm btn-outline-primary"
-                       href="${pageContext.request.contextPath}/apartment?action=assign-owner&amp;id=${apartment.apartmentId}">
-                        <c:choose>
-                            <c:when test="${empty owners}">Gán owner</c:when>
-                            <c:otherwise>Đổi owner</c:otherwise>
-                        </c:choose>
-                    </a>
+                    <div class="d-flex flex-wrap gap-1">
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="${pageContext.request.contextPath}/apartment?action=assign-owner&amp;id=${apartment.apartmentId}">
+                            <c:choose>
+                                <c:when test="${empty owners}">Gán owner</c:when>
+                                <c:otherwise>Đổi owner</c:otherwise>
+                            </c:choose>
+                        </a>
+                        <c:if test="${not empty owners}">
+                            <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
+                                  onsubmit="return confirm('Gỡ chủ sở hữu khỏi căn này? Thành viên hộ không bị xóa — gỡ TV riêng nếu cần.');">
+                                <input type="hidden" name="action" value="remove-owner">
+                                <input type="hidden" name="apartmentId" value="${apartment.apartmentId}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Gỡ owner</button>
+                            </form>
+                        </c:if>
+                    </div>
                 </c:if>
             </div>
             <div class="card-body">
@@ -210,10 +224,23 @@
             <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-people me-1"></i> Người thuê</span>
                 <c:if test="${canManage}">
-                    <a class="btn btn-sm btn-outline-primary"
-                       href="${pageContext.request.contextPath}/apartment?action=assign-tenant&amp;id=${apartment.apartmentId}">
-                        Gán thuê
-                    </a>
+                    <div class="d-flex flex-wrap gap-1">
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="${pageContext.request.contextPath}/apartment?action=assign-tenant&amp;id=${apartment.apartmentId}">
+                            <c:choose>
+                                <c:when test="${empty tenants}">Gán thuê</c:when>
+                                <c:otherwise>Gán thêm / đổi</c:otherwise>
+                            </c:choose>
+                        </a>
+                        <c:if test="${not empty tenants}">
+                            <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
+                                  onsubmit="return confirm('Gỡ toàn bộ người thuê / đại diện thuê khỏi căn này? Thành viên hộ không bị xóa.');">
+                                <input type="hidden" name="action" value="remove-tenant">
+                                <input type="hidden" name="apartmentId" value="${apartment.apartmentId}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Gỡ thuê</button>
+                            </form>
+                        </c:if>
+                    </div>
                 </c:if>
             </div>
             <div class="card-body">
@@ -348,11 +375,11 @@
                                                 <form method="post"
                                                       action="${pageContext.request.contextPath}/apartment"
                                                       class="d-inline"
-                                                      onsubmit="return confirm('Gỡ thành viên ${m.fullName}? (Soft delete – giữ lịch sử, is_active=0)');">
+                                                      onsubmit="return confirm('Xóa thành viên ${m.fullName}?\nNếu người này là chủ sở hữu thì sẽ gỡ luôn vai trò owner.\nThao tác không hoàn tác.');">
                                                     <input type="hidden" name="action" value="remove-member">
                                                     <input type="hidden" name="apartmentId" value="${apartment.apartmentId}">
                                                     <input type="hidden" name="memberId" value="${m.memberId}">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Gỡ</button>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
                                                 </form>
                                             </c:if>
                                         </div>
@@ -370,62 +397,94 @@
 
 <%-- ===== Lịch sử ===== --%>
 <div class="card shadow-sm mb-3">
-    <div class="card-header bg-white fw-semibold">
-        <i class="bi bi-clock-history me-1"></i> Lịch sử
+    <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-1"></i> Lịch sử cập nhật</span>
+        <span class="badge text-bg-light text-dark">${empty histories ? 0 : histories.size()} sự kiện</span>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
+            <table class="table table-sm table-hover align-middle mb-0">
                 <thead class="table-light">
                 <tr>
-                    <th style="width: 180px;">Thời điểm</th>
-                    <th>Hành động</th>
-                    <th>Trạng thái</th>
-                    <th>Người thực hiện</th>
+                    <th style="width: 170px;">Thời điểm</th>
+                    <th style="width: 160px;">Hành động</th>
+                    <th style="width: 120px;">Trạng thái / vai trò</th>
+                    <th style="width: 140px;">Người thực hiện</th>
                     <th>Ghi chú</th>
                 </tr>
                 </thead>
                 <tbody>
-                <%-- Dòng tối thiểu từ entity nếu chưa có history table data --%>
-                <c:if test="${empty histories}">
-                    <tr>
-                        <td class="small text-muted">
-                            <c:out value="${empty apartment.createdAt ? '—' : apartment.createdAt}"/>
-                        </td>
-                        <td><span class="badge text-bg-primary">CREATE</span></td>
-                        <td class="small">→ ${apartment.status}</td>
-                        <td class="small text-muted">Hệ thống / dữ liệu gốc</td>
-                        <td class="small text-muted">Thông tin tạo căn (từ bản ghi căn hộ)</td>
-                    </tr>
-                    <c:if test="${not empty apartment.updatedAt}">
+                <c:choose>
+                    <c:when test="${empty histories}">
                         <tr>
-                            <td class="small text-muted">${apartment.updatedAt}</td>
-                            <td><span class="badge text-bg-secondary">UPDATE</span></td>
-                            <td class="small">${apartment.status}</td>
-                            <td class="small text-muted">—</td>
-                            <td class="small text-muted">Cập nhật gần nhất (từ bản ghi căn hộ)</td>
+                            <td class="small text-muted">
+                                <c:out value="${empty apartment.createdAt ? '—' : apartment.createdAt}"/>
+                            </td>
+                            <td><span class="badge text-bg-primary">CREATE</span></td>
+                            <td class="small">→ ${apartment.status}</td>
+                            <td class="small text-muted">Hệ thống</td>
+                            <td class="small text-muted">Tạo căn (từ bản ghi apartment — chưa có history DB)</td>
                         </tr>
-                    </c:if>
-                </c:if>
-                <c:forEach var="h" items="${histories}">
-                    <tr>
-                        <td class="small text-muted">
-                            <c:out value="${empty h.createdAt ? '—' : h.createdAt}"/>
-                        </td>
-                        <td><span class="badge text-bg-dark">${h.action}</span></td>
-                        <td class="small">
-                            <c:out value="${empty h.oldStatus ? '—' : h.oldStatus}"/>
-                            →
-                            <c:out value="${empty h.newStatus ? '—' : h.newStatus}"/>
-                        </td>
-                        <td class="small">
-                            <c:out value="${empty h.actorName ? '—' : h.actorName}"/>
-                        </td>
-                        <td class="small text-muted">
-                            <c:out value="${empty h.note ? '—' : h.note}"/>
-                        </td>
-                    </tr>
-                </c:forEach>
+                        <tr>
+                            <td colspan="5" class="small text-muted px-3 pb-3">
+                                Chưa có sự kiện gán owner/thuê/thành viên.
+                                Sau khi gán owner / gán thuê / thêm TV, các dòng
+                                <code>ASSIGN_OWNER</code>, <code>ASSIGN_TENANT</code>, <code>ADD_MEMBER</code>…
+                                sẽ hiện tại đây.
+                            </td>
+                        </tr>
+                    </c:when>
+                    <c:otherwise>
+                        <c:forEach var="h" items="${histories}">
+                            <tr>
+                                <td class="small text-muted">
+                                    <c:out value="${empty h.createdAt ? '—' : h.createdAt}"/>
+                                </td>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${h.action == 'ASSIGN_OWNER' || h.action == 'CHANGE_OWNER'}">
+                                            <span class="badge text-bg-primary">${h.action}</span>
+                                        </c:when>
+                                        <c:when test="${h.action == 'REMOVE_OWNER'}">
+                                            <span class="badge text-bg-danger">${h.action}</span>
+                                        </c:when>
+                                        <c:when test="${h.action == 'ASSIGN_TENANT' || h.action == 'ASSIGN_TENANT_REP' || h.action == 'CHANGE_TENANT_REP'}">
+                                            <span class="badge text-bg-info text-dark">${h.action}</span>
+                                        </c:when>
+                                        <c:when test="${h.action == 'ADD_MEMBER' || h.action == 'UPDATE_MEMBER'}">
+                                            <span class="badge text-bg-success">${h.action}</span>
+                                        </c:when>
+                                        <c:when test="${h.action == 'REMOVE_MEMBER'}">
+                                            <span class="badge text-bg-warning text-dark">${h.action}</span>
+                                        </c:when>
+                                        <c:when test="${h.action == 'DEACTIVATE' || h.action == 'ACTIVATE' || h.action == 'DELETE'}">
+                                            <span class="badge text-bg-secondary">${h.action}</span>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <span class="badge text-bg-dark">${h.action}</span>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <td class="small">
+                                    <c:choose>
+                                        <c:when test="${empty h.oldStatus && empty h.newStatus}">—</c:when>
+                                        <c:when test="${empty h.oldStatus}">→ <c:out value="${h.newStatus}"/></c:when>
+                                        <c:when test="${empty h.newStatus}"><c:out value="${h.oldStatus}"/> →</c:when>
+                                        <c:otherwise>
+                                            <c:out value="${h.oldStatus}"/> → <c:out value="${h.newStatus}"/>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <td class="small">
+                                    <c:out value="${empty h.actorName ? '—' : h.actorName}"/>
+                                </td>
+                                <td class="small text-muted">
+                                    <c:out value="${empty h.note ? '—' : h.note}"/>
+                                </td>
+                            </tr>
+                        </c:forEach>
+                    </c:otherwise>
+                </c:choose>
                 </tbody>
             </table>
         </div>

@@ -207,4 +207,5 @@ Mỗi lần làm xong 1 phần, sửa mục **2. Đã xong** (tick thêm) và gh
 - 2026-07-14: UC-APT-08 Thêm thành viên — relationship, CCCD, phone, DOB + validate.
 - 2026-07-14: UC-APT-09 Update/Remove member — soft delete is_active=0 + audit + edit form.
 - 2026-07-14: UC-APT-10 list members + CSV export; Task 14 permission matrix; Task 15 BR tổng hợp.
+- 2026-07-15: Fix vibe feedback — assign-owner error detail; sync household on owner/tenant; history fail surface; hard delete member; trim outdated DAO comments.
 Đã xong UC Đăng nhập, hôm sau làm tiếp UC Giỏ hàng

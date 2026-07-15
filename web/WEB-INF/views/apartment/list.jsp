@@ -89,24 +89,13 @@
                     <th style="width: 50px;">#</th>
                     <th>
                         <a class="text-decoration-none text-dark" onclick="showListLoading()"
-                           href="${listBaseUrl}&amp;sort=code&amp;dir=${sort == 'code' && dir == 'asc' ? 'desc' : 'asc'}&amp;page=1">
-                            Mã căn
-                            <c:if test="${sort == 'code'}"><i class="bi bi-caret-${dir == 'asc' ? 'up' : 'down'}-fill"></i></c:if>
-                        </a>
-                    </th>
-                    <th>
-                        <a class="text-decoration-none text-dark" onclick="showListLoading()"
                            href="${listBaseUrl}&amp;sort=building&amp;dir=${sort == 'building' && dir == 'asc' ? 'desc' : 'asc'}&amp;page=1">
-                            Tòa
-                            <c:if test="${sort == 'building'}"><i class="bi bi-caret-${dir == 'asc' ? 'up' : 'down'}-fill"></i></c:if>
+                            Định danh
+                            <c:if test="${sort == 'building' || sort == 'code' || sort == 'floor'}">
+                                <i class="bi bi-caret-${dir == 'asc' ? 'up' : 'down'}-fill"></i>
+                            </c:if>
                         </a>
-                    </th>
-                    <th>
-                        <a class="text-decoration-none text-dark" onclick="showListLoading()"
-                           href="${listBaseUrl}&amp;sort=floor&amp;dir=${sort == 'floor' && dir == 'asc' ? 'desc' : 'asc'}&amp;page=1">
-                            Tầng
-                            <c:if test="${sort == 'floor'}"><i class="bi bi-caret-${dir == 'asc' ? 'up' : 'down'}-fill"></i></c:if>
-                        </a>
+                        <div class="small fw-normal text-muted">[tòa] - [tầng] [mã]</div>
                     </th>
                     <th>
                         <a class="text-decoration-none text-dark" onclick="showListLoading()"
@@ -140,7 +129,7 @@
                     <%-- Empty state --%>
                     <c:when test="${empty apartments}">
                         <tr>
-                            <td colspan="${canManage ? 9 : 8}" class="text-center py-5">
+                            <td colspan="${canManage ? 7 : 6}" class="text-center py-5">
                                 <div class="text-muted">
                                     <i class="bi bi-inbox display-6 d-block mb-2"></i>
                                     <c:choose>
@@ -174,11 +163,9 @@
                                 <td class="fw-semibold">
                                     <a class="text-decoration-none"
                                        href="${pageContext.request.contextPath}/apartment?action=detail&amp;id=${apt.apartmentId}">
-                                        ${apt.apartmentCode}
+                                        ${apt.building} - ${apt.floorNumber} ${apt.apartmentCode}
                                     </a>
                                 </td>
-                                <td>${apt.building}</td>
-                                <td>${apt.floorNumber}</td>
                                 <td>
                                     <fmt:formatNumber value="${apt.areaM2}" minFractionDigits="0" maxFractionDigits="2"/> m²
                                 </td>
@@ -222,7 +209,7 @@
                                             <c:choose>
                                                 <c:when test="${apt.status == 'ACTIVE'}">
                                                     <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                                                          onsubmit="return confirm('Vô hiệu hóa căn ${apt.apartmentCode}?');">
+                                                          onsubmit="return confirm('Vô hiệu hóa căn ${apt.building} - ${apt.floorNumber} ${apt.apartmentCode}?');">
                                                         <input type="hidden" name="action" value="deactivate">
                                                         <input type="hidden" name="id" value="${apt.apartmentId}">
                                                         <button type="submit" class="btn btn-sm btn-outline-warning">
@@ -232,7 +219,7 @@
                                                 </c:when>
                                                 <c:otherwise>
                                                     <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                                                          onsubmit="return confirm('Kích hoạt lại căn ${apt.apartmentCode}?');">
+                                                          onsubmit="return confirm('Kích hoạt lại căn ${apt.building} - ${apt.floorNumber} ${apt.apartmentCode}?');">
                                                         <input type="hidden" name="action" value="activate">
                                                         <input type="hidden" name="id" value="${apt.apartmentId}">
                                                         <button type="submit" class="btn btn-sm btn-outline-success">
@@ -240,7 +227,7 @@
                                                         </button>
                                                     </form>
                                                     <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                                                          onsubmit="return confirm('XÓA VĨNH VIỄN căn ${apt.apartmentCode}? Không hoàn tác!');">
+                                                          onsubmit="return confirm('XÓA VĨNH VIỄN căn ${apt.building} - ${apt.floorNumber} ${apt.apartmentCode}? Không hoàn tác!');">
                                                         <input type="hidden" name="action" value="delete">
                                                         <input type="hidden" name="id" value="${apt.apartmentId}">
                                                         <button type="submit" class="btn btn-sm btn-outline-danger">

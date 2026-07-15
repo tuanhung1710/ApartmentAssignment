@@ -9,9 +9,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Thành viên hộ – UC-APT-05/08/09 (list · thêm · sửa · soft delete).
- */
+/** Thành viên hộ (household_members): CRUD + list filter + hard delete. */
 public class HouseholdMemberDAO extends DBContext {
 
     public HouseholdMember getFromResultSet(ResultSet rs) throws SQLException {
@@ -28,10 +26,11 @@ public class HouseholdMemberDAO extends DBContext {
                 .build();
     }
 
-    public List<HouseholdMember> findByApartmentId(int apartmentId) {
+    /** Chỉ thành viên đang active (hiển thị detail). */
+    public List<HouseholdMember> findActiveByApartmentId(int apartmentId) {
         List<HouseholdMember> list = new ArrayList<>();
-        String sql = "SELECT * FROM household_members WHERE apartment_id = ? "
-                + "ORDER BY is_active DESC, full_name";
+        String sql = "SELECT * FROM household_members WHERE apartment_id = ? AND is_active = 1 "
+                + "ORDER BY full_name";
         try {
             connection = getConnection();
             if (connection == null) {
@@ -44,117 +43,15 @@ public class HouseholdMemberDAO extends DBContext {
                 list.add(getFromResultSet(resultSet));
             }
         } catch (SQLException e) {
-            System.out.println("HouseholdMemberDAO.findByApartmentId: " + e.getMessage());
+            System.out.println("HouseholdMemberDAO.findActiveByApartmentId: " + e.getMessage());
         } finally {
             closeResources();
         }
         return list;
     }
 
-    /**
-     * UC-APT-10: list thành viên + search/filter + phân trang (JOIN apartments).
-     *
-     * @param statusFilter ACTIVE | INACTIVE | null/empty = all
-     */
-    public List<HouseholdMember> findMembersWithFilters(String keyword, String relationship,
-            String statusFilter, String building, int page, int pageSize) {
-        List<HouseholdMember> list = new ArrayList<>();
-        StringBuilder sql = new StringBuilder(
-                "SELECT hm.*, a.apartment_code, a.building "
-                + "FROM household_members hm "
-                + "INNER JOIN apartments a ON a.apartment_id = hm.apartment_id "
-                + "WHERE 1=1");
-        List<Object> params = new ArrayList<>();
-        appendMemberFilters(sql, params, keyword, relationship, statusFilter, building);
-        sql.append(" ORDER BY hm.is_active DESC, a.building, a.apartment_code, hm.full_name");
-        sql.append(" OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
-        try {
-            connection = getConnection();
-            if (connection == null) {
-                return list;
-            }
-            statement = connection.prepareStatement(sql.toString());
-            int idx = 1;
-            for (Object p : params) {
-                statement.setObject(idx++, p);
-            }
-            int offset = Math.max(0, (page - 1) * pageSize);
-            statement.setInt(idx++, offset);
-            statement.setInt(idx, pageSize);
-            resultSet = statement.executeQuery();
-            while (resultSet.next()) {
-                HouseholdMember m = getFromResultSet(resultSet);
-                m.setApartmentCode(resultSet.getString("apartment_code"));
-                m.setBuilding(resultSet.getString("building"));
-                list.add(m);
-            }
-        } catch (SQLException e) {
-            System.out.println("HouseholdMemberDAO.findMembersWithFilters: " + e.getMessage());
-        } finally {
-            closeResources();
-        }
-        return list;
-    }
-
-    public int countMembersWithFilters(String keyword, String relationship,
-            String statusFilter, String building) {
-        StringBuilder sql = new StringBuilder(
-                "SELECT COUNT(*) FROM household_members hm "
-                + "INNER JOIN apartments a ON a.apartment_id = hm.apartment_id WHERE 1=1");
-        List<Object> params = new ArrayList<>();
-        appendMemberFilters(sql, params, keyword, relationship, statusFilter, building);
-        try {
-            connection = getConnection();
-            if (connection == null) {
-                return 0;
-            }
-            statement = connection.prepareStatement(sql.toString());
-            int idx = 1;
-            for (Object p : params) {
-                statement.setObject(idx++, p);
-            }
-            resultSet = statement.executeQuery();
-            if (resultSet.next()) {
-                return resultSet.getInt(1);
-            }
-        } catch (SQLException e) {
-            System.out.println("HouseholdMemberDAO.countMembersWithFilters: " + e.getMessage());
-        } finally {
-            closeResources();
-        }
-        return 0;
-    }
-
-    /** Export: cùng filter, không phân trang (giới hạn an toàn 5000). */
-    public List<HouseholdMember> findMembersForExport(String keyword, String relationship,
-            String statusFilter, String building) {
-        return findMembersWithFilters(keyword, relationship, statusFilter, building, 1, 5000);
-    }
-
-    private void appendMemberFilters(StringBuilder sql, List<Object> params,
-            String keyword, String relationship, String statusFilter, String building) {
-        if (keyword != null && !keyword.isEmpty()) {
-            sql.append(" AND (hm.full_name LIKE ? OR ISNULL(hm.phone,'') LIKE ? "
-                    + "OR ISNULL(hm.id_number,'') LIKE ? OR a.apartment_code LIKE ?)");
-            String like = "%" + keyword + "%";
-            params.add(like);
-            params.add(like);
-            params.add(like);
-            params.add(like);
-        }
-        if (relationship != null && !relationship.isEmpty()) {
-            sql.append(" AND hm.relationship = ?");
-            params.add(relationship);
-        }
-        if ("ACTIVE".equalsIgnoreCase(statusFilter)) {
-            sql.append(" AND hm.is_active = 1");
-        } else if ("INACTIVE".equalsIgnoreCase(statusFilter)) {
-            sql.append(" AND hm.is_active = 0");
-        }
-        if (building != null && !building.isEmpty()) {
-            sql.append(" AND a.building LIKE ?");
-            params.add("%" + building + "%");
-        }
+    public List<HouseholdMember> findByApartmentId(int apartmentId) {
+        return findActiveByApartmentId(apartmentId);
     }
 
     public HouseholdMember findById(int memberId) {
@@ -182,7 +79,6 @@ public class HouseholdMemberDAO extends DBContext {
         return existsActiveIdNumberExceptId(apartmentId, idNumber, null);
     }
 
-    /** CCCD trùng active trên căn, trừ chính member đang sửa. */
     public boolean existsActiveIdNumberExceptId(int apartmentId, String idNumber, Integer exceptMemberId) {
         if (idNumber == null || idNumber.isEmpty()) {
             return false;
@@ -251,7 +147,6 @@ public class HouseholdMemberDAO extends DBContext {
         }
     }
 
-    /** UC-APT-09 Update. */
     public boolean update(HouseholdMember m) {
         String sql = "UPDATE household_members SET full_name = ?, relationship = ?, phone = ?, "
                 + "id_number = ?, date_of_birth = ? WHERE member_id = ? AND apartment_id = ?";
@@ -281,9 +176,7 @@ public class HouseholdMemberDAO extends DBContext {
         }
     }
 
-    /**
-     * Soft delete — Remove (BR-U03): is_active = 0, giữ row.
-     */
+    /** Soft delete (giữ row). */
     public boolean softDelete(int memberId, int apartmentId) {
         String sql = "UPDATE household_members SET is_active = 0 "
                 + "WHERE member_id = ? AND apartment_id = ? AND is_active = 1";
@@ -301,6 +194,272 @@ public class HouseholdMemberDAO extends DBContext {
             return false;
         } finally {
             closeResources();
+        }
+    }
+
+    /** Hard delete — gỡ hẳn khỏi thành viên hộ. */
+    public boolean hardDelete(int memberId, int apartmentId) {
+        String sql = "DELETE FROM household_members WHERE member_id = ? AND apartment_id = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, memberId);
+            statement.setInt(2, apartmentId);
+            return statement.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("HouseholdMemberDAO.hardDelete: " + e.getMessage());
+            return false;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /** Xóa TV active theo quan hệ (vd. Chủ hộ khi gỡ owner). */
+    public int hardDeleteByRelationship(int apartmentId, String relationship) {
+        String sql = "DELETE FROM household_members WHERE apartment_id = ? AND relationship = ? AND is_active = 1";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return -1;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, apartmentId);
+            statement.setString(2, relationship);
+            return statement.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("HouseholdMemberDAO.hardDeleteByRelationship: " + e.getMessage());
+            return -1;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /** Xóa TV active khớp họ tên + quan hệ (đồng bộ khi gỡ owner/thuê). */
+    public int hardDeleteByNameAndRelationship(int apartmentId, String fullName, String relationship) {
+        if (fullName == null || fullName.trim().isEmpty()) {
+            return 0;
+        }
+        String sql = "DELETE FROM household_members WHERE apartment_id = ? AND is_active = 1 "
+                + "AND full_name = ? AND relationship = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return -1;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, apartmentId);
+            statement.setString(2, fullName.trim());
+            statement.setString(3, relationship);
+            return statement.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("HouseholdMemberDAO.hardDeleteByNameAndRelationship: " + e.getMessage());
+            return -1;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /**
+     * Soft-delete toàn bộ TV active của căn (khi đổi owner — clear nhân khẩu cũ).
+     */
+    public int softDeleteAllActiveByApartment(int apartmentId) {
+        String sql = "UPDATE household_members SET is_active = 0 "
+                + "WHERE apartment_id = ? AND is_active = 1";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return -1;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, apartmentId);
+            return statement.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("HouseholdMemberDAO.softDeleteAllActiveByApartment: " + e.getMessage());
+            return -1;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /**
+     * Đã có thành viên active trùng họ tên trên căn (không phân biệt quan hệ).
+     */
+    public boolean existsActiveByFullName(int apartmentId, String fullName) {
+        if (fullName == null || fullName.trim().isEmpty()) {
+            return false;
+        }
+        String sql = "SELECT 1 FROM household_members "
+                + "WHERE apartment_id = ? AND is_active = 1 AND LOWER(LTRIM(RTRIM(full_name))) = LOWER(?)";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, apartmentId);
+            statement.setString(2, fullName.trim());
+            resultSet = statement.executeQuery();
+            return resultSet.next();
+        } catch (SQLException e) {
+            System.out.println("HouseholdMemberDAO.existsActiveByFullName: " + e.getMessage());
+            return false;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /**
+     * Upsert thành viên active theo (căn + họ tên + quan hệ) — sync từ owner/tenant.
+     * Nếu đã có active cùng tên+quan hệ → bỏ qua; không → insert.
+     * @return memberId nếu đã có hoặc insert OK; -1 lỗi; 0 nếu đã tồn tại (tên bất kỳ quan hệ) và skip insert
+     */
+    public int ensureActiveMember(int apartmentId, String fullName, String relationship, String phone) {
+        if (fullName == null || fullName.trim().isEmpty()) {
+            return -1;
+        }
+        String name = fullName.trim();
+        String rel = relationship == null || relationship.isEmpty() ? "Khác" : relationship.trim();
+
+        // Đã có trong thành viên hộ (cùng tên) → không thêm dòng mới
+        if (existsActiveByFullName(apartmentId, name)) {
+            return 0;
+        }
+
+        Integer existingId = null;
+        String sqlFind = "SELECT member_id FROM household_members "
+                + "WHERE apartment_id = ? AND is_active = 1 AND full_name = ? AND relationship = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return -1;
+            }
+            statement = connection.prepareStatement(sqlFind);
+            statement.setInt(1, apartmentId);
+            statement.setString(2, name);
+            statement.setString(3, rel);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                existingId = resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.out.println("HouseholdMemberDAO.ensureActiveMember: " + e.getMessage());
+            return -1;
+        } finally {
+            closeResources();
+        }
+        if (existingId != null) {
+            return existingId;
+        }
+        return insert(HouseholdMember.builder()
+                .apartmentId(apartmentId)
+                .fullName(name)
+                .relationship(rel)
+                .phone(phone)
+                .isActive(true)
+                .build());
+    }
+
+    public List<HouseholdMember> findMembersWithFilters(String keyword, String relationship,
+            String statusFilter, String building, int page, int pageSize) {
+        List<HouseholdMember> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+                "SELECT hm.*, a.apartment_code, a.building, a.floor_number "
+                + "FROM household_members hm "
+                + "INNER JOIN apartments a ON a.apartment_id = hm.apartment_id "
+                + "WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        appendMemberFilters(sql, params, keyword, relationship, statusFilter, building);
+        sql.append(" ORDER BY hm.is_active DESC, a.building, a.apartment_code, hm.full_name");
+        sql.append(" OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return list;
+            }
+            statement = connection.prepareStatement(sql.toString());
+            int idx = 1;
+            for (Object p : params) {
+                statement.setObject(idx++, p);
+            }
+            int offset = Math.max(0, (page - 1) * pageSize);
+            statement.setInt(idx++, offset);
+            statement.setInt(idx, pageSize);
+            resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                HouseholdMember m = getFromResultSet(resultSet);
+                m.setApartmentCode(resultSet.getString("apartment_code"));
+                m.setBuilding(resultSet.getString("building"));
+                m.setFloorNumber(resultSet.getInt("floor_number"));
+                list.add(m);
+            }
+        } catch (SQLException e) {
+            System.out.println("HouseholdMemberDAO.findMembersWithFilters: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return list;
+    }
+
+    public int countMembersWithFilters(String keyword, String relationship,
+            String statusFilter, String building) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT COUNT(*) FROM household_members hm "
+                + "INNER JOIN apartments a ON a.apartment_id = hm.apartment_id WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        appendMemberFilters(sql, params, keyword, relationship, statusFilter, building);
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return 0;
+            }
+            statement = connection.prepareStatement(sql.toString());
+            int idx = 1;
+            for (Object p : params) {
+                statement.setObject(idx++, p);
+            }
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.out.println("HouseholdMemberDAO.countMembersWithFilters: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return 0;
+    }
+
+    public List<HouseholdMember> findMembersForExport(String keyword, String relationship,
+            String statusFilter, String building) {
+        return findMembersWithFilters(keyword, relationship, statusFilter, building, 1, 5000);
+    }
+
+    private void appendMemberFilters(StringBuilder sql, List<Object> params,
+            String keyword, String relationship, String statusFilter, String building) {
+        if (keyword != null && !keyword.isEmpty()) {
+            sql.append(" AND (hm.full_name LIKE ? OR ISNULL(hm.phone,'') LIKE ? "
+                    + "OR ISNULL(hm.id_number,'') LIKE ? OR a.apartment_code LIKE ?)");
+            String like = "%" + keyword + "%";
+            params.add(like);
+            params.add(like);
+            params.add(like);
+            params.add(like);
+        }
+        if (relationship != null && !relationship.isEmpty()) {
+            sql.append(" AND hm.relationship = ?");
+            params.add(relationship);
+        }
+        if ("ACTIVE".equalsIgnoreCase(statusFilter)) {
+            sql.append(" AND hm.is_active = 1");
+        } else if ("INACTIVE".equalsIgnoreCase(statusFilter)) {
+            sql.append(" AND hm.is_active = 0");
+        }
+        if (building != null && !building.isEmpty()) {
+            sql.append(" AND a.building LIKE ?");
+            params.add("%" + building + "%");
         }
     }
 

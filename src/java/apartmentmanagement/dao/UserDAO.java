@@ -189,6 +189,66 @@ public class UserDAO extends DBContext {
         }
     }
 
+    /**
+     * Tạo nhanh user RESIDENT active (gán owner/tenant người mới).
+     * username unique; password mặc định 123456 (demo PRJ301).
+     * @return userId mới, hoặc -1 nếu lỗi / trùng username
+     */
+    public int createResidentQuick(String fullName, String phone, String email, String usernameHint) {
+        if (fullName == null || fullName.trim().isEmpty()) {
+            return -1;
+        }
+        String base = slugUsername(usernameHint != null && !usernameHint.trim().isEmpty()
+                ? usernameHint : fullName);
+        if (base.isEmpty()) {
+            base = "resident";
+        }
+        if (base.length() > 40) {
+            base = base.substring(0, 40);
+        }
+        String username = base;
+        int suffix = 1;
+        while (findByUsername(username) != null && suffix < 1000) {
+            String s = String.valueOf(suffix++);
+            int maxBase = Math.max(1, 50 - 1 - s.length());
+            username = (base.length() > maxBase ? base.substring(0, maxBase) : base) + s;
+        }
+        if (findByUsername(username) != null) {
+            return -1;
+        }
+        return insert(User.builder()
+                .username(username)
+                .password("123456")
+                .fullName(fullName.trim())
+                .phone(phone == null || phone.trim().isEmpty() ? null : phone.trim())
+                .email(email == null || email.trim().isEmpty() ? null : email.trim())
+                .role("RESIDENT")
+                .department(null)
+                .isActive(true)
+                .build());
+    }
+
+    private String slugUsername(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        String s = raw.trim().toLowerCase()
+                .replaceAll("[àáạảãâầấậẩẫăằắặẳẵ]", "a")
+                .replaceAll("[èéẹẻẽêềếệểễ]", "e")
+                .replaceAll("[ìíịỉĩ]", "i")
+                .replaceAll("[òóọỏõôồốộổỗơờớợởỡ]", "o")
+                .replaceAll("[ùúụủũưừứựửữ]", "u")
+                .replaceAll("[ỳýỵỷỹ]", "y")
+                .replaceAll("đ", "d")
+                .replaceAll("[^a-z0-9]+", "")
+                .replaceAll("^[^a-z0-9]+", "");
+        if (s.isEmpty()) {
+            // fallback nếu fullName toàn dấu/ký tự lạ
+            s = "user" + System.currentTimeMillis() % 100000;
+        }
+        return s;
+    }
+
     public boolean updateStatus(int userId, boolean isActive) {
         String sql = "UPDATE users SET is_active = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
         try {

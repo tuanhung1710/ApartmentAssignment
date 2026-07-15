@@ -5,7 +5,7 @@
     <div>
         <h2 class="h4 mb-1">Cập nhật thành viên</h2>
         <p class="text-muted small mb-0">
-            Căn <strong>${apartment.apartmentCode}</strong>
+            Căn <strong>${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}</strong>
             · TV #<c:out value="${form.memberId}"/>
         </p>
     </div>

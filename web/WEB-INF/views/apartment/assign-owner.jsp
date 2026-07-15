@@ -5,8 +5,7 @@
     <div>
         <h2 class="h4 mb-1">Gán chủ sở hữu</h2>
         <p class="text-muted small mb-0">
-            Căn <strong>${apartment.apartmentCode}</strong>
-            · ${apartment.building} · Tầng ${apartment.floorNumber}
+            Căn <strong>${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}</strong>
         </p>
     </div>
     <a class="btn btn-outline-secondary btn-sm"
@@ -66,15 +65,28 @@
                 </c:choose>
             </div>
             <div class="card-body">
-                <form method="post" action="${pageContext.request.contextPath}/apartment">
+                <form method="post" action="${pageContext.request.contextPath}/apartment" id="assignOwnerForm">
                     <input type="hidden" name="action" value="assign-owner">
                     <input type="hidden" name="apartmentId" value="${apartment.apartmentId}">
 
                     <div class="mb-3">
-                        <label class="form-label" for="userId">
-                            Chủ sở hữu <span class="text-danger">*</span>
-                        </label>
-                        <select class="form-select" id="userId" name="userId" required>
+                        <label class="form-label d-block">Nguồn người gán <span class="text-danger">*</span></label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="personSource" id="srcExisting"
+                                   value="existing" ${empty personSource || personSource == 'existing' ? 'checked' : ''}
+                                   onchange="toggleOwnerSource()">
+                            <label class="btn btn-outline-primary" for="srcExisting">User có sẵn</label>
+                            <input type="radio" class="btn-check" name="personSource" id="srcNew"
+                                   value="new" ${personSource == 'new' ? 'checked' : ''}
+                                   onchange="toggleOwnerSource()">
+                            <label class="btn btn-outline-primary" for="srcNew">Người mới</label>
+                        </div>
+                        <div class="form-text">Có thể gán user hệ thống hoặc tạo cư dân mới rồi gán luôn.</div>
+                    </div>
+
+                    <div id="blockExistingOwner" class="mb-3">
+                        <label class="form-label" for="userId">Chọn user</label>
+                        <select class="form-select" id="userId" name="userId">
                             <option value="">-- Chọn user --</option>
                             <c:forEach var="u" items="${candidateUsers}">
                                 <option value="${u.userId}"
@@ -84,14 +96,53 @@
                                 </option>
                             </c:forEach>
                         </select>
-                        <div class="form-text">Ưu tiên RESIDENT active · 1 căn tối đa 1 owner hiện tại</div>
+                        <c:if test="${not empty householdMembers}">
+                            <div class="form-text">
+                                Gợi ý từ thành viên hộ:
+                                <c:forEach var="m" items="${householdMembers}" varStatus="st">
+                                    <button type="button" class="btn btn-link btn-sm p-0 align-baseline"
+                                            onclick="fillOwnerFromMember('${m.fullName}', '${empty m.phone ? '' : m.phone}')">
+                                        <c:out value="${m.fullName}"/>
+                                    </button><c:if test="${!st.last}"> · </c:if>
+                                </c:forEach>
+                            </div>
+                        </c:if>
+                    </div>
+
+                    <div id="blockNewOwner" class="mb-3 d-none">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label" for="newFullName">Họ tên <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="newFullName" name="newFullName"
+                                       value="${newFullName}" maxlength="100" placeholder="VD: Nguyễn Văn A">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="newPhone">SĐT</label>
+                                <input type="text" class="form-control" id="newPhone" name="newPhone"
+                                       value="${newPhone}" maxlength="20" placeholder="090...">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="newEmail">Email</label>
+                                <input type="email" class="form-control" id="newEmail" name="newEmail"
+                                       value="${newEmail}" maxlength="100">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="newUsername">Username (tuỳ chọn)</label>
+                                <input type="text" class="form-control" id="newUsername" name="newUsername"
+                                       value="${newUsername}" maxlength="50" placeholder="Tự sinh nếu trống">
+                            </div>
+                        </div>
+                        <div class="form-text">
+                            Hệ thống tạo user role <strong>RESIDENT</strong>, mật khẩu mặc định
+                            <code>123456</code>, rồi gán làm owner.
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label" for="startDate">Ngày bắt đầu</label>
                         <input type="date" class="form-control" id="startDate" name="startDate"
                                value="${startDate}">
-                        <div class="form-text">Để trống = hôm nay</div>
+                        <div class="form-text">Để trống = hôm nay · 1 căn tối đa 1 owner hiện tại</div>
                     </div>
 
                     <div class="d-flex gap-2">
@@ -108,6 +159,25 @@
                         </a>
                     </div>
                 </form>
+                <script>
+                    function toggleOwnerSource() {
+                        var isNew = document.getElementById('srcNew').checked;
+                        document.getElementById('blockExistingOwner').classList.toggle('d-none', isNew);
+                        document.getElementById('blockNewOwner').classList.toggle('d-none', !isNew);
+                        var sel = document.getElementById('userId');
+                        if (sel) {
+                            if (isNew) { sel.removeAttribute('required'); }
+                            else { sel.setAttribute('required', 'required'); }
+                        }
+                    }
+                    function fillOwnerFromMember(name, phone) {
+                        document.getElementById('srcNew').checked = true;
+                        toggleOwnerSource();
+                        document.getElementById('newFullName').value = name || '';
+                        document.getElementById('newPhone').value = phone || '';
+                    }
+                    toggleOwnerSource();
+                </script>
             </div>
         </div>
     </div>

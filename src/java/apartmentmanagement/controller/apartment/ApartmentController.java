@@ -35,9 +35,9 @@ import java.util.regex.Pattern;
 @WebServlet(name = "ApartmentController", urlPatterns = {"/apartment"})
 public class ApartmentController extends HttpServlet {
 
-    private static final Pattern CODE_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,19}$");
     private static final Pattern CCCD_PATTERN = Pattern.compile("^\\d{9,12}$");
     private static final Pattern PHONE_PATTERN = Pattern.compile("^0?\\d{9,10}$");
+    private static final Pattern BUILDING_TOKEN_PATTERN = Pattern.compile("(?i)(?:tòa\\s*|toa\\s*|building\\s*)?([A-Za-z0-9]+)");
     private static final BigDecimal AREA_MIN = new BigDecimal("15");
     private static final BigDecimal AREA_MAX = new BigDecimal("10000");
     private static final String[] RELATIONSHIP_OPTIONS = {
@@ -127,8 +127,14 @@ public class ApartmentController extends HttpServlet {
             case "assign-owner":
                 handleAssignOwner(request, response);
                 break;
+            case "remove-owner":
+                handleRemoveOwner(request, response);
+                break;
             case "assign-tenant":
                 handleAssignTenant(request, response);
+                break;
+            case "remove-tenant":
+                handleRemoveTenant(request, response);
                 break;
             case "add-member":
                 handleAddMember(request, response);
@@ -254,12 +260,12 @@ public class ApartmentController extends HttpServlet {
 
     private void handleCreate(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-      
+
         User user = requireUser(request, response);
         if (user == null) {
             return;
         }
-  
+
         if (!canManage(user.getRole())) {
             FlashUtil.error(request, "Bạn không có quyền thêm căn hộ.");
             response.sendRedirect(request.getContextPath() + "/dashboard");
@@ -267,15 +273,27 @@ public class ApartmentController extends HttpServlet {
         }
 
         Apartment form = bindForm(request, false);
-        List<String> errors = validateForCreate(form);
+        // Mã căn do hệ thống sinh từ tòa + tầng — bỏ qua input client
+        form.setApartmentCode(null);
 
+        List<String> errors = validateForCreate(form);
         if (!errors.isEmpty()) {
             forwardForm(request, response, form, errors, "create");
             return;
         }
 
+        String generatedCode = generateApartmentCode(form.getBuilding(), form.getFloorNumber());
+        if (generatedCode == null) {
+            errors.add("Không thể sinh mã căn hộ. Vui lòng kiểm tra tòa nhà / tầng.");
+            forwardForm(request, response, form, errors, "create");
+            return;
+        }
+        form.setApartmentCode(generatedCode);
+
         if (apartmentDAO.existsByCode(form.getApartmentCode())) {
-            errors.add("Mã căn hộ đã tồn tại.");
+            errors.add("Đã tồn tại căn hộ với mã " + form.getApartmentCode()
+                    + " (" + formatApartmentIdentity(form) + ").");
+            form.setApartmentCode(null);
             forwardForm(request, response, form, errors, "create");
             return;
         }
@@ -284,7 +302,8 @@ public class ApartmentController extends HttpServlet {
         if (newId >= 0) {
             form.setApartmentId(newId > 0 ? newId : null);
             writeHistory(user, form, "CREATE", null, form.getStatus(), "Tạo căn hộ mới");
-            FlashUtil.success(request, "Thêm căn hộ thành công.");
+            FlashUtil.success(request, "Thêm căn hộ thành công. Mã: "
+                    + formatApartmentIdentity(form) + ".");
             if (newId > 0) {
                 response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + newId);
             } else {
@@ -292,6 +311,7 @@ public class ApartmentController extends HttpServlet {
             }
         } else {
             errors.add("Không thể thêm căn hộ. Vui lòng thử lại.");
+            form.setApartmentCode(null);
             forwardForm(request, response, form, errors, "create");
         }
     }
@@ -384,6 +404,10 @@ public class ApartmentController extends HttpServlet {
         request.setAttribute("apartment", apartment);
         request.setAttribute("currentOwner", currentOwner);
         request.setAttribute("candidateUsers", candidates);
+        request.setAttribute("householdMembers", householdMemberDAO.findByApartmentId(apartmentId));
+        if (request.getAttribute("personSource") == null) {
+            request.setAttribute("personSource", "existing");
+        }
         if (request.getAttribute("startDate") == null) {
             request.setAttribute("startDate", LocalDate.now().toString());
         }
@@ -409,8 +433,16 @@ public class ApartmentController extends HttpServlet {
         }
 
         Integer apartmentId = parseId(request.getParameter("apartmentId"));
+        String personSource = trim(request.getParameter("personSource"));
+        if (personSource == null || personSource.isEmpty()) {
+            personSource = "existing";
+        }
         Integer userId = parseId(request.getParameter("userId"));
         String startRaw = trim(request.getParameter("startDate"));
+        String newFullName = trim(request.getParameter("newFullName"));
+        String newPhone = trim(request.getParameter("newPhone"));
+        String newEmail = trim(request.getParameter("newEmail"));
+        String newUsername = trim(request.getParameter("newUsername"));
 
         List<String> errors = new ArrayList<>();
         Apartment apartment = null;
@@ -427,10 +459,6 @@ public class ApartmentController extends HttpServlet {
             return;
         }
 
-        if (userId == null) {
-            errors.add("Vui lòng chọn chủ sở hữu.");
-        }
-
         Date startDate = null;
         if (startRaw == null || startRaw.isEmpty()) {
             startDate = Date.valueOf(LocalDate.now());
@@ -443,10 +471,34 @@ public class ApartmentController extends HttpServlet {
         }
 
         User ownerUser = null;
-        if (userId != null) {
-            ownerUser = userDAO.findById(userId);
-            if (ownerUser == null || ownerUser.getIsActive() == null || !ownerUser.getIsActive()) {
-                errors.add("User không hợp lệ hoặc đã bị khóa.");
+        boolean createdNewUser = false;
+        if ("new".equalsIgnoreCase(personSource)) {
+            if (newFullName == null || newFullName.isEmpty()) {
+                errors.add("Vui lòng nhập họ tên người mới.");
+            } else if (newFullName.length() < 2 || newFullName.length() > 100) {
+                errors.add("Họ tên phải từ 2 đến 100 ký tự.");
+            }
+            if (newPhone != null && !newPhone.isEmpty() && !PHONE_PATTERN.matcher(newPhone).matches()) {
+                errors.add("Số điện thoại không hợp lệ.");
+            }
+            if (errors.isEmpty()) {
+                int newUid = userDAO.createResidentQuick(newFullName, newPhone, newEmail, newUsername);
+                if (newUid <= 0) {
+                    errors.add("Không thể tạo user mới (username trùng hoặc lỗi DB). Thử username khác.");
+                } else {
+                    userId = newUid;
+                    ownerUser = userDAO.findById(newUid);
+                    createdNewUser = true;
+                }
+            }
+        } else {
+            if (userId == null) {
+                errors.add("Vui lòng chọn chủ sở hữu hoặc chọn Người mới.");
+            } else {
+                ownerUser = userDAO.findById(userId);
+                if (ownerUser == null || ownerUser.getIsActive() == null || !ownerUser.getIsActive()) {
+                    errors.add("User không hợp lệ hoặc đã bị khóa.");
+                }
             }
         }
 
@@ -459,10 +511,16 @@ public class ApartmentController extends HttpServlet {
         if (!errors.isEmpty()) {
             request.setAttribute("errors", errors);
             request.setAttribute("selectedUserId", userId);
+            request.setAttribute("personSource", personSource);
+            request.setAttribute("newFullName", newFullName == null ? "" : newFullName);
+            request.setAttribute("newPhone", newPhone == null ? "" : newPhone);
+            request.setAttribute("newEmail", newEmail == null ? "" : newEmail);
+            request.setAttribute("newUsername", newUsername == null ? "" : newUsername);
             request.setAttribute("startDate", startRaw != null ? startRaw : LocalDate.now().toString());
             request.setAttribute("apartment", apartment);
             request.setAttribute("currentOwner", currentOwner);
             request.setAttribute("candidateUsers", userDAO.findActiveUsers());
+            request.setAttribute("householdMembers", householdMemberDAO.findByApartmentId(apartmentId));
             request.setAttribute("pageTitle", "Gán chủ sở hữu · " + apartment.getApartmentCode());
             request.setAttribute("contentPage", "/WEB-INF/views/apartment/assign-owner.jsp");
             request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
@@ -473,30 +531,148 @@ public class ApartmentController extends HttpServlet {
         if (isChange) {
             int ended = apartmentResidentDAO.endCurrentOwners(apartmentId, startDate);
             if (ended < 0) {
-                FlashUtil.error(request, "Không thể gán chủ sở hữu. Vui lòng thử lại.");
+                String detail = apartmentResidentDAO.getLastError();
+                FlashUtil.error(request, detail != null && !detail.isEmpty()
+                        ? detail
+                        : "Không thể gán chủ sở hữu. Vui lòng thử lại.");
                 response.sendRedirect(request.getContextPath()
                         + "/apartment?action=assign-owner&id=" + apartmentId);
                 return;
             }
+            // Không soft-delete toàn bộ TV — chỉ sync dòng Chủ hộ bên dưới
         }
 
         int newId = apartmentResidentDAO.insertOwner(apartmentId, userId, startDate);
         if (newId < 0) {
-            FlashUtil.error(request, "Không thể gán chủ sở hữu. Vui lòng thử lại.");
+            String detail = apartmentResidentDAO.getLastError();
+            FlashUtil.error(request, detail != null && !detail.isEmpty()
+                    ? detail
+                    : "Không thể gán chủ sở hữu. Vui lòng thử lại.");
             response.sendRedirect(request.getContextPath()
                     + "/apartment?action=assign-owner&id=" + apartmentId);
             return;
         }
 
+        String ownerName = ownerUser.getFullName() != null ? ownerUser.getFullName() : ownerUser.getUsername();
+        // Sync TV "Chủ hộ": nếu đã có trong thành viên hộ (trùng tên) → không thêm mới
+        if (isChange && currentOwner != null) {
+            String oldName = currentOwner.getFullName() != null
+                    ? currentOwner.getFullName() : currentOwner.getUsername();
+            // Chỉ gỡ dòng "Chủ hộ" của owner cũ nếu khác tên owner mới
+            if (oldName != null && !oldName.trim().isEmpty()
+                    && (ownerName == null || !oldName.trim().equalsIgnoreCase(ownerName.trim()))) {
+                householdMemberDAO.hardDeleteByNameAndRelationship(apartmentId, oldName, "Chủ hộ");
+            }
+        }
+        boolean alreadyInHousehold = householdMemberDAO.existsActiveByFullName(apartmentId, ownerName);
+        int memberSync = -2;
+        if (alreadyInHousehold) {
+            memberSync = 0; // đã có → skip insert
+        } else {
+            memberSync = householdMemberDAO.ensureActiveMember(
+                    apartmentId, ownerName, "Chủ hộ", ownerUser.getPhone());
+        }
+
         String histAction = isChange ? "CHANGE_OWNER" : "ASSIGN_OWNER";
         String note = isChange
-                ? "Đổi owner → userId=" + userId
-                : "Gán owner lần đầu userId=" + userId;
-        writeHistory(actor, apartment, histAction, null, null, note);
+                ? "Đổi owner → " + ownerName + " (userId=" + userId + ")"
+                : "Gán owner lần đầu → " + ownerName + " (userId=" + userId + ")";
+        if (alreadyInHousehold || memberSync == 0) {
+            note += " | TV: đã có trong thành viên hộ, không thêm mới";
+        } else if (memberSync > 0) {
+            note += " | TV: thêm dòng Chủ hộ";
+        }
+        boolean histOk = writeHistory(actor, apartment, histAction, "OWNER", "OWNER", note);
+        audit(actor, histAction, apartment, "OWNER", "OWNER", "SUCCESS", note);
 
-        FlashUtil.success(request, isChange
-                ? "Đổi chủ sở hữu thành công."
-                : "Gán chủ sở hữu thành công.");
+        String okMsg = isChange ? "Đổi chủ sở hữu thành công." : "Gán chủ sở hữu thành công.";
+        if (createdNewUser) {
+            okMsg += " Đã tạo user RESIDENT @" + ownerUser.getUsername() + " (pass 123456).";
+        }
+        if (alreadyInHousehold || memberSync == 0) {
+            okMsg += " \"" + ownerName + "\" đã có trong thành viên hộ — không thêm mới.";
+        } else if (memberSync > 0) {
+            okMsg += " Đã thêm \"" + ownerName + "\" vào thành viên hộ (Chủ hộ).";
+        }
+        if (!histOk) {
+            String he = apartmentHistoryDAO.getLastError();
+            okMsg += " (Cảnh báo: chưa ghi được lịch sử"
+                    + (he != null && !he.isEmpty() ? " — " + he : "") + ")";
+        }
+        FlashUtil.success(request, okMsg);
+        response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
+    }
+
+    /**
+     * Chỉ gỡ chủ sở hữu (end current OWNER).
+     * Thành viên hộ gỡ riêng bằng nút Xóa ở bảng Thành viên hộ — không xóa cùng lúc.
+     */
+    private void handleRemoveOwner(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        User actor = requireUser(request, response);
+        if (actor == null) {
+            return;
+        }
+        if (!canManage(actor.getRole())) {
+            FlashUtil.error(request, "Bạn không có quyền gỡ chủ sở hữu.");
+            response.sendRedirect(request.getContextPath() + "/dashboard");
+            return;
+        }
+
+        Integer apartmentId = parseId(request.getParameter("apartmentId"));
+        if (apartmentId == null) {
+            apartmentId = parseId(request.getParameter("id"));
+        }
+        if (apartmentId == null) {
+            FlashUtil.error(request, "ID căn hộ không hợp lệ.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=list");
+            return;
+        }
+
+        Apartment apartment = apartmentDAO.findById(apartmentId);
+        if (apartment == null) {
+            FlashUtil.error(request, "Không tìm thấy căn hộ.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=list");
+            return;
+        }
+
+        ApartmentResident currentOwner = apartmentResidentDAO.findCurrentOwner(apartmentId);
+        if (currentOwner == null) {
+            FlashUtil.error(request, "Căn hộ chưa có chủ sở hữu để gỡ.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
+            return;
+        }
+
+        // Xóa hẳn row OWNER current — tránh UNIQUE (apt,user,OWNER,0) khi đã có lịch sử
+        int deleted = apartmentResidentDAO.deleteCurrentOwners(apartmentId);
+        if (deleted < 0) {
+            String detail = apartmentResidentDAO.getLastError();
+            FlashUtil.error(request, detail != null && !detail.isEmpty()
+                    ? detail
+                    : "Không thể gỡ chủ sở hữu. Vui lòng thử lại.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
+            return;
+        }
+        if (deleted == 0) {
+            FlashUtil.error(request, "Căn hộ chưa có chủ sở hữu để gỡ.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
+            return;
+        }
+
+        String ownerName = currentOwner.getFullName() != null
+                ? currentOwner.getFullName()
+                : currentOwner.getUsername();
+        String note = "Gỡ owner → " + ownerName + " (userId=" + currentOwner.getUserId() + ")";
+        boolean histOk = writeHistory(actor, apartment, "REMOVE_OWNER", "OWNER", "NONE", note);
+        audit(actor, "REMOVE_OWNER", apartment, "OWNER", "NONE", "SUCCESS", note);
+
+        String okMsg = "Đã gỡ chủ sở hữu. Thành viên hộ vẫn giữ — gỡ riêng ở bảng Thành viên hộ nếu cần.";
+        if (!histOk) {
+            String he = apartmentHistoryDAO.getLastError();
+            okMsg += " (Cảnh báo: chưa ghi được lịch sử"
+                    + (he != null && !he.isEmpty() ? " — " + he : "") + ")";
+        }
+        FlashUtil.success(request, okMsg);
         response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
     }
 
@@ -553,10 +729,18 @@ public class ApartmentController extends HttpServlet {
         }
 
         Integer apartmentId = parseId(request.getParameter("apartmentId"));
+        String personSource = trim(request.getParameter("personSource"));
+        if (personSource == null || personSource.isEmpty()) {
+            personSource = "existing";
+        }
         Integer userId = parseId(request.getParameter("userId"));
         String roleInApartment = trim(request.getParameter("roleInApartment"));
         String startRaw = trim(request.getParameter("startDate"));
         String endRaw = trim(request.getParameter("endDate"));
+        String newFullName = trim(request.getParameter("newFullName"));
+        String newPhone = trim(request.getParameter("newPhone"));
+        String newEmail = trim(request.getParameter("newEmail"));
+        String newUsername = trim(request.getParameter("newUsername"));
 
         if (apartmentId == null) {
             FlashUtil.error(request, "ID căn hộ không hợp lệ.");
@@ -571,10 +755,7 @@ public class ApartmentController extends HttpServlet {
         }
 
         List<String> errors = new ArrayList<>();
-
-        if (userId == null) {
-            errors.add("Vui lòng chọn người thuê.");
-        }
+        boolean createdNewUser = false;
 
         if (roleInApartment == null
                 || !(AppConstants.APT_ROLE_TENANT_REP.equals(roleInApartment)
@@ -611,10 +792,33 @@ public class ApartmentController extends HttpServlet {
         }
 
         User tenantUser = null;
-        if (userId != null) {
-            tenantUser = userDAO.findById(userId);
-            if (tenantUser == null || tenantUser.getIsActive() == null || !tenantUser.getIsActive()) {
-                errors.add("User không hợp lệ hoặc đã bị khóa.");
+        if ("new".equalsIgnoreCase(personSource)) {
+            if (newFullName == null || newFullName.isEmpty()) {
+                errors.add("Vui lòng nhập họ tên người mới.");
+            } else if (newFullName.length() < 2 || newFullName.length() > 100) {
+                errors.add("Họ tên phải từ 2 đến 100 ký tự.");
+            }
+            if (newPhone != null && !newPhone.isEmpty() && !PHONE_PATTERN.matcher(newPhone).matches()) {
+                errors.add("Số điện thoại không hợp lệ.");
+            }
+            if (errors.isEmpty()) {
+                int newUid = userDAO.createResidentQuick(newFullName, newPhone, newEmail, newUsername);
+                if (newUid <= 0) {
+                    errors.add("Không thể tạo user mới (username trùng hoặc lỗi DB). Thử username khác.");
+                } else {
+                    userId = newUid;
+                    tenantUser = userDAO.findById(newUid);
+                    createdNewUser = true;
+                }
+            }
+        } else {
+            if (userId == null) {
+                errors.add("Vui lòng chọn người thuê hoặc chọn Người mới.");
+            } else {
+                tenantUser = userDAO.findById(userId);
+                if (tenantUser == null || tenantUser.getIsActive() == null || !tenantUser.getIsActive()) {
+                    errors.add("User không hợp lệ hoặc đã bị khóa.");
+                }
             }
         }
 
@@ -624,6 +828,11 @@ public class ApartmentController extends HttpServlet {
         }
 
         if (!errors.isEmpty()) {
+            request.setAttribute("personSource", personSource);
+            request.setAttribute("newFullName", newFullName == null ? "" : newFullName);
+            request.setAttribute("newPhone", newPhone == null ? "" : newPhone);
+            request.setAttribute("newEmail", newEmail == null ? "" : newEmail);
+            request.setAttribute("newUsername", newUsername == null ? "" : newUsername);
             forwardAssignTenantForm(request, response, apartment, errors, userId,
                     roleInApartment, startRaw, endRaw);
             return;
@@ -636,7 +845,10 @@ public class ApartmentController extends HttpServlet {
                 changeRep = true;
                 int ended = apartmentResidentDAO.endCurrentTenantReps(apartmentId, startDate);
                 if (ended < 0) {
-                    FlashUtil.error(request, "Không thể gán người thuê. Vui lòng thử lại.");
+                    String detail = apartmentResidentDAO.getLastError();
+                    FlashUtil.error(request, detail != null && !detail.isEmpty()
+                            ? detail
+                            : "Không thể gán người thuê. Vui lòng thử lại.");
                     response.sendRedirect(request.getContextPath()
                             + "/apartment?action=assign-tenant&id=" + apartmentId);
                     return;
@@ -647,21 +859,119 @@ public class ApartmentController extends HttpServlet {
         int newId = apartmentResidentDAO.insertTenant(
                 apartmentId, userId, roleInApartment, startDate, endDate);
         if (newId < 0) {
-            FlashUtil.error(request, "Không thể gán người thuê. Vui lòng thử lại.");
+            String detail = apartmentResidentDAO.getLastError();
+            FlashUtil.error(request, detail != null && !detail.isEmpty()
+                    ? detail
+                    : "Không thể gán người thuê. Vui lòng thử lại.");
             response.sendRedirect(request.getContextPath()
                     + "/apartment?action=assign-tenant&id=" + apartmentId);
             return;
         }
 
-        String histAction = changeRep ? "CHANGE_TENANT_REP" : "ASSIGN_TENANT";
-        String note = roleInApartment + " userId=" + userId
-                + " start=" + startDate
-                + (endDate != null ? " end=" + endDate : " end=open");
-        writeHistory(actor, apartment, histAction, null, null, note);
+        // Không auto đồng bộ household_members — thành viên hộ quản lý riêng
+        String tenantName = tenantUser.getFullName() != null ? tenantUser.getFullName() : tenantUser.getUsername();
 
-        FlashUtil.success(request, changeRep
+        String histAction = changeRep ? "CHANGE_TENANT_REP" : "ASSIGN_TENANT";
+        if (!changeRep && AppConstants.APT_ROLE_TENANT_REP.equals(roleInApartment)) {
+            histAction = "ASSIGN_TENANT_REP";
+        }
+        String note = roleInApartment + " → " + tenantName + " (userId=" + userId + ")"
+                + " | start=" + startDate
+                + (endDate != null ? " | end=" + endDate : " | end=mở");
+        boolean histOk = writeHistory(actor, apartment, histAction, roleInApartment, roleInApartment, note);
+        audit(actor, histAction, apartment, roleInApartment, roleInApartment, "SUCCESS", note);
+
+        String okMsg = changeRep
                 ? "Đổi đại diện thuê thành công."
-                : "Gán người thuê thành công.");
+                : "Gán người thuê thành công.";
+        if (createdNewUser && tenantUser != null) {
+            okMsg += " Đã tạo user RESIDENT @" + tenantUser.getUsername() + " (pass 123456).";
+        }
+        if (!histOk) {
+            String he = apartmentHistoryDAO.getLastError();
+            okMsg += " (Cảnh báo: chưa ghi được lịch sử"
+                    + (he != null && !he.isEmpty() ? " — " + he : "") + ")";
+        }
+        FlashUtil.success(request, okMsg);
+        response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
+    }
+
+    /**
+     * Gỡ toàn bộ người thuê / đại diện thuê hiện tại (giống gỡ owner).
+     * Không đụng thành viên hộ.
+     */
+    private void handleRemoveTenant(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        User actor = requireUser(request, response);
+        if (actor == null) {
+            return;
+        }
+        if (!canManage(actor.getRole())) {
+            FlashUtil.error(request, "Bạn không có quyền gỡ người thuê.");
+            response.sendRedirect(request.getContextPath() + "/dashboard");
+            return;
+        }
+
+        Integer apartmentId = parseId(request.getParameter("apartmentId"));
+        if (apartmentId == null) {
+            apartmentId = parseId(request.getParameter("id"));
+        }
+        if (apartmentId == null) {
+            FlashUtil.error(request, "ID căn hộ không hợp lệ.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=list");
+            return;
+        }
+
+        Apartment apartment = apartmentDAO.findById(apartmentId);
+        if (apartment == null) {
+            FlashUtil.error(request, "Không tìm thấy căn hộ.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=list");
+            return;
+        }
+
+        List<ApartmentResident> currentTenants = apartmentResidentDAO.findByApartmentAndRoles(
+                apartmentId, AppConstants.APT_ROLE_TENANT_REP, AppConstants.APT_ROLE_TENANT);
+        if (currentTenants == null || currentTenants.isEmpty()) {
+            FlashUtil.error(request, "Căn hộ chưa có người thuê để gỡ.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
+            return;
+        }
+
+        int deleted = apartmentResidentDAO.deleteCurrentTenants(apartmentId);
+        if (deleted < 0) {
+            String detail = apartmentResidentDAO.getLastError();
+            FlashUtil.error(request, detail != null && !detail.isEmpty()
+                    ? detail
+                    : "Không thể gỡ người thuê. Vui lòng thử lại.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
+            return;
+        }
+        if (deleted == 0) {
+            FlashUtil.error(request, "Căn hộ chưa có người thuê để gỡ.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
+            return;
+        }
+
+        StringBuilder names = new StringBuilder();
+        for (int i = 0; i < currentTenants.size(); i++) {
+            ApartmentResident t = currentTenants.get(i);
+            String n = t.getFullName() != null ? t.getFullName() : t.getUsername();
+            if (i > 0) {
+                names.append(", ");
+            }
+            names.append(n).append(" (").append(t.getRoleInApartment()).append(")");
+        }
+        String note = "Gỡ người thuê → " + names + " (xóa " + deleted + " bản ghi)";
+        boolean histOk = writeHistory(actor, apartment, "REMOVE_TENANT", "TENANT", "NONE", note);
+        audit(actor, "REMOVE_TENANT", apartment, "TENANT", "NONE", "SUCCESS", note);
+
+        String okMsg = "Đã gỡ người thuê / đại diện thuê. Thành viên hộ không bị xóa.";
+        if (!histOk) {
+            String he = apartmentHistoryDAO.getLastError();
+            okMsg += " (Cảnh báo: chưa ghi được lịch sử"
+                    + (he != null && !he.isEmpty() ? " — " + he : "") + ")";
+        }
+        FlashUtil.success(request, okMsg);
         response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
     }
 
@@ -678,6 +988,10 @@ public class ApartmentController extends HttpServlet {
         request.setAttribute("currentTenants",
                 apartmentResidentDAO.findByApartmentAndRoles(apartmentId, AppConstants.APT_ROLE_TENANT));
         request.setAttribute("candidateUsers", userDAO.findActiveUsers());
+        request.setAttribute("householdMembers", householdMemberDAO.findByApartmentId(apartmentId));
+        if (request.getAttribute("personSource") == null) {
+            request.setAttribute("personSource", "existing");
+        }
         request.setAttribute("selectedUserId", selectedUserId);
         request.setAttribute("selectedRole", selectedRole);
         request.setAttribute("startDate",
@@ -853,9 +1167,7 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
-    /**
-     * UC-APT-09: form cập nhật thành viên.
-     */
+    
     private void handleEditMemberForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -907,9 +1219,7 @@ public class ApartmentController extends HttpServlet {
         forwardEditMemberForm(request, response, apartment, null);
     }
 
-    /**
-     * UC-APT-09: submit update thành viên.
-     */
+    
     private void handleEditMember(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User actor = requireUser(request, response);
@@ -1027,8 +1337,11 @@ public class ApartmentController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
     }
 
+    
     /**
-     * UC-APT-09: soft delete thành viên (is_active = 0).
+     * UC-APT-09: Xóa thành viên hộ.
+     * Nếu TV đó cũng là chủ sở hữu hiện tại (quan hệ Chủ hộ / trùng tên owner)
+     * → gỡ luôn gán OWNER trong apartment_residents.
      */
     private void handleRemoveMember(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -1070,24 +1383,72 @@ public class ApartmentController extends HttpServlet {
                     + "/apartment?action=detail&id=" + apartmentId);
             return;
         }
-        if (existing.getIsActive() != null && !existing.getIsActive()) {
-            FlashUtil.error(request, "Thành viên đã được gỡ trước đó.");
-            response.sendRedirect(request.getContextPath()
-                    + "/apartment?action=detail&id=" + apartmentId);
+
+        ApartmentResident currentOwner = apartmentResidentDAO.findCurrentOwner(apartmentId);
+        boolean alsoOwner = isSamePersonAsOwner(existing, currentOwner);
+
+        String removedName = existing.getFullName();
+        String rel = existing.getRelationship() == null ? "" : existing.getRelationship();
+
+        if (!householdMemberDAO.hardDelete(memberId, apartmentId)) {
+            audit(actor, "REMOVE_MEMBER", apartment, null, null, "ERROR", "hardDelete failed");
+            FlashUtil.error(request, "Không thể xóa thành viên. Vui lòng thử lại.");
+            response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
             return;
         }
 
-        if (householdMemberDAO.softDelete(memberId, apartmentId)) {
-            writeHistory(actor, apartment, "REMOVE_MEMBER", null, null,
-                    "Gỡ TV#" + memberId + ": " + existing.getFullName() + " (soft delete)");
-            audit(actor, "REMOVE_MEMBER", apartment, "ACTIVE", "INACTIVE", "SUCCESS",
-                    "memberId=" + memberId + " softDelete is_active=0");
-            FlashUtil.success(request, "Đã gỡ thành viên (ngừng sinh sống).");
+        boolean ownerRemoved = false;
+        if (alsoOwner && currentOwner != null) {
+            int deleted = apartmentResidentDAO.deleteCurrentOwners(apartmentId);
+            if (deleted > 0) {
+                ownerRemoved = true;
+                String ownerLabel = currentOwner.getFullName() != null
+                        ? currentOwner.getFullName() : currentOwner.getUsername();
+                writeHistory(actor, apartment, "REMOVE_OWNER", "OWNER", "NONE",
+                        "Gỡ owner theo xóa TV \"" + removedName + "\" → " + ownerLabel
+                        + " (userId=" + currentOwner.getUserId() + ")");
+                audit(actor, "REMOVE_OWNER", apartment, "OWNER", "NONE", "SUCCESS",
+                        "cascade from REMOVE_MEMBER memberId=" + memberId);
+            } else if (deleted < 0) {
+                System.out.println("WARN handleRemoveMember: xóa TV OK nhưng gỡ owner fail apartmentId="
+                        + apartmentId + " err=" + apartmentResidentDAO.getLastError());
+            }
+        }
+
+        writeHistory(actor, apartment, "REMOVE_MEMBER", null, null,
+                "Xóa TV#" + memberId + ": " + removedName
+                + (rel.isEmpty() ? "" : " (" + rel + ")")
+                + (ownerRemoved ? " + gỡ OWNER" : ""));
+        audit(actor, "REMOVE_MEMBER", apartment, "ACTIVE", "DELETED", "SUCCESS",
+                "memberId=" + memberId + (ownerRemoved ? " + REMOVE_OWNER" : ""));
+
+        if (ownerRemoved) {
+            FlashUtil.success(request, "Đã xóa thành viên \"" + removedName
+                    + "\" và gỡ luôn vai trò chủ sở hữu của người này.");
         } else {
-            audit(actor, "REMOVE_MEMBER", apartment, null, null, "ERROR", "softDelete failed");
-            FlashUtil.error(request, "Không thể thực hiện. Vui lòng thử lại.");
+            FlashUtil.success(request, "Đã xóa thành viên \"" + removedName + "\" khỏi danh sách hộ.");
         }
         response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
+    }
+
+    /**
+     * TV trùng chủ sở hữu hiện tại: quan hệ "Chủ hộ" hoặc trùng fullName/username owner.
+     */
+    private boolean isSamePersonAsOwner(HouseholdMember member, ApartmentResident owner) {
+        if (member == null || owner == null) {
+            return false;
+        }
+        String rel = member.getRelationship() == null ? "" : member.getRelationship().trim();
+        if ("Chủ hộ".equalsIgnoreCase(rel)) {
+            return true;
+        }
+        String memberName = member.getFullName() == null ? "" : member.getFullName().trim();
+        if (memberName.isEmpty()) {
+            return false;
+        }
+        String ownerFull = owner.getFullName() == null ? "" : owner.getFullName().trim();
+        String ownerUser = owner.getUsername() == null ? "" : owner.getUsername().trim();
+        return memberName.equalsIgnoreCase(ownerFull) || memberName.equalsIgnoreCase(ownerUser);
     }
 
     private void forwardEditMemberForm(HttpServletRequest request, HttpServletResponse response,
@@ -1103,9 +1464,7 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
-    /**
-     * UC-APT-10: danh sách thành viên — search, filter relationship/status, pagination.
-     */
+    
     private void handleMembers(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -1169,9 +1528,7 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
-    /**
-     * UC-APT-10: export CSV (Excel-friendly UTF-8 BOM). Chỉ ADMIN/MANAGER.
-     */
+    
     private void handleExportMembers(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         User user = requireUser(request, response);
@@ -1197,11 +1554,16 @@ public class ApartmentController extends HttpServlet {
         response.setHeader("Content-Disposition",
                 "attachment; filename=\"household-members.csv\"");
 
-        // BOM for Excel UTF-8
+        
         java.io.PrintWriter out = response.getWriter();
         out.write('﻿');
-        out.println("memberId,fullName,relationship,phone,idNumber,dateOfBirth,apartmentCode,building,status");
+        out.println("memberId,fullName,relationship,phone,idNumber,dateOfBirth,identity,apartmentCode,building,floor,status");
         for (HouseholdMember m : rows) {
+            String identity = (m.getBuilding() == null ? "" : m.getBuilding())
+                    + " - "
+                    + (m.getFloorNumber() == null ? "" : m.getFloorNumber())
+                    + " "
+                    + (m.getApartmentCode() == null ? "" : m.getApartmentCode());
             out.print(csv(m.getMemberId()));
             out.print(',');
             out.print(csv(m.getFullName()));
@@ -1214,9 +1576,13 @@ public class ApartmentController extends HttpServlet {
             out.print(',');
             out.print(csv(m.getDateOfBirth() == null ? "" : m.getDateOfBirth().toString()));
             out.print(',');
+            out.print(csv(identity.trim()));
+            out.print(',');
             out.print(csv(m.getApartmentCode()));
             out.print(',');
             out.print(csv(m.getBuilding()));
+            out.print(',');
+            out.print(csv(m.getFloorNumber()));
             out.print(',');
             out.print(csv(m.getIsActive() != null && m.getIsActive() ? "ACTIVE" : "INACTIVE"));
             out.println();
@@ -1232,9 +1598,7 @@ public class ApartmentController extends HttpServlet {
         return "\"" + s + "\"";
     }
 
-    /**
-     * UC-APT-02: mở form cập nhật.
-     */
+    
     private void handleEditForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -1254,7 +1618,7 @@ public class ApartmentController extends HttpServlet {
             return;
         }
 
-        // Khi validate fail đã set form — không ghi đè
+       
         if (request.getAttribute("form") == null) {
             Apartment existing = apartmentDAO.findById(id);
             if (existing == null) {
@@ -1272,9 +1636,7 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
-    /**
-     * UC-APT-02: submit cập nhật.
-     */
+   
     private void handleUpdate(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -1303,8 +1665,11 @@ public class ApartmentController extends HttpServlet {
             return;
         }
 
-        // Giữ mã căn gốc — không cho đổi (BR-U02)
+       
+        // Định danh căn: [tòa] - [tầng] [mã] — không cho đổi sau khi tạo
         form.setApartmentCode(existing.getApartmentCode());
+        form.setBuilding(existing.getBuilding());
+        form.setFloorNumber(existing.getFloorNumber());
 
         errors.addAll(validateForUpdate(form));
         if (!errors.isEmpty()) {
@@ -1322,9 +1687,7 @@ public class ApartmentController extends HttpServlet {
         }
     }
 
-    /**
-     * UC-APT-03: vô hiệu hóa căn (ACTIVE → INACTIVE). Soft disable — giữ lịch sử.
-     */
+    
     private void handleDeactivate(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         User user = requireUser(request, response);
@@ -1377,9 +1740,7 @@ public class ApartmentController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + id);
     }
 
-    /**
-     * UC-APT-03: kích hoạt lại (INACTIVE → ACTIVE).
-     */
+    
     private void handleActivate(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         User user = requireUser(request, response);
@@ -1428,9 +1789,7 @@ public class ApartmentController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + id);
     }
 
-    /**
-     * UC-APT-03: xóa cứng — chỉ khi INACTIVE và không còn cư dân hiện tại.
-     */
+   
     private void handleDelete(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         User user = requireUser(request, response);
@@ -1474,7 +1833,7 @@ public class ApartmentController extends HttpServlet {
             return;
         }
 
-        // BR-CON: module contracts chưa có bảng → bỏ qua check HĐ trong MVP
+       
 
         if (apartmentDAO.deleteById(id)) {
             audit(user, "DELETE", apt, AppConstants.APT_STATUS_INACTIVE, "DELETED", "SUCCESS", "OK");
@@ -1486,9 +1845,7 @@ public class ApartmentController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/apartment?action=list");
     }
 
-    /**
-     * Audit log MVP — ghi console Tomcat (BR-AUD). Format 1 dòng dễ grep.
-     */
+    
     private void audit(User actor, String action, Apartment apt,
             String fromStatus, String toStatus, String result, String message) {
         System.out.println(String.format(
@@ -1506,24 +1863,40 @@ public class ApartmentController extends HttpServlet {
                 message));
     }
 
-    /** Ghi lịch sử DB (UC-APT-05). Lỗi bảng chưa có → bỏ qua, không chặn UC chính. */
-    private void writeHistory(User actor, Apartment apt, String action,
+ 
+    /**
+     * Ghi apartment_history. Trả true nếu insert OK.
+     * Tự ensure bảng; null status được ghi là NULL (không crash).
+     */
+    private boolean writeHistory(User actor, Apartment apt, String action,
             String fromStatus, String toStatus, String note) {
-        if (apt == null || apt.getApartmentId() == null) {
-            return;
+        if (apt == null || apt.getApartmentId() == null || action == null || action.isEmpty()) {
+            System.out.println("writeHistory skip: missing apartment/action");
+            return false;
         }
         try {
-            apartmentHistoryDAO.insert(ApartmentHistory.builder()
+            int id = apartmentHistoryDAO.insert(ApartmentHistory.builder()
                     .apartmentId(apt.getApartmentId())
-                    .action(action)
+                    .action(action.trim())
                     .oldStatus(fromStatus)
                     .newStatus(toStatus)
                     .note(note)
                     .actorUserId(actor != null ? actor.getUserId() : null)
-                    .actorName(actor != null ? actor.getFullName() : null)
+                    .actorName(actor != null
+                            ? (actor.getFullName() != null ? actor.getFullName() : actor.getUsername())
+                            : "Hệ thống")
                     .build());
+            if (id < 0) {
+                System.out.println("writeHistory fail: " + apartmentHistoryDAO.getLastError());
+                return false;
+            }
+            System.out.println("writeHistory OK: apt=" + apt.getApartmentId()
+                    + " action=" + action + " id=" + id);
+            return true;
         } catch (Exception e) {
-            System.out.println("writeHistory skip: " + e.getMessage());
+            System.out.println("writeHistory exception: " + e.getMessage());
+            e.printStackTrace();
+            return false;
         }
     }
 
@@ -1540,9 +1913,9 @@ public class ApartmentController extends HttpServlet {
 
     /**
      * @param forUpdate true = đọc thêm apartmentId
+     * Create: không bind apartmentCode (server tự sinh).
      */
     private Apartment bindForm(HttpServletRequest request, boolean forUpdate) {
-        String code = trim(request.getParameter("apartmentCode"));
         String building = trim(request.getParameter("building"));
         String floorRaw = trim(request.getParameter("floorNumber"));
         String areaRaw = trim(request.getParameter("areaM2"));
@@ -1577,7 +1950,7 @@ public class ApartmentController extends HttpServlet {
 
         return Apartment.builder()
                 .apartmentId(apartmentId)
-                .apartmentCode(code)
+                .apartmentCode(null) // create: generate; update: ghi đè từ existing
                 .building(building)
                 .floorNumber(floorNumber)
                 .areaM2(areaM2)
@@ -1588,20 +1961,10 @@ public class ApartmentController extends HttpServlet {
     }
 
     private List<String> validateForCreate(Apartment form) {
-        List<String> errors = new ArrayList<>();
-
-        String code = form.getApartmentCode();
-        if (code == null || code.isEmpty()) {
-            errors.add("Vui lòng nhập mã căn hộ.");
-        } else if (!CODE_PATTERN.matcher(code).matches()) {
-            errors.add("Mã căn hộ chỉ gồm chữ, số, gạch ngang hoặc gạch dưới (tối đa 20 ký tự).");
-        }
-
-        errors.addAll(validateSharedFields(form));
-        return errors;
+        // Mã căn tự sinh sau validate — không yêu cầu user nhập
+        return validateSharedFields(form);
     }
 
-    /** Update: không validate/đổi mã căn (đã khóa). */
     private List<String> validateForUpdate(Apartment form) {
         return validateSharedFields(form);
     }
@@ -1614,6 +1977,8 @@ public class ApartmentController extends HttpServlet {
             errors.add("Vui lòng nhập tòa nhà.");
         } else if (building.length() > 50) {
             errors.add("Tên tòa nhà tối đa 50 ký tự.");
+        } else if (extractBuildingToken(building) == null) {
+            errors.add("Tên tòa nhà phải chứa chữ hoặc số để sinh mã căn (vd: A, Tòa B).");
         }
 
         Integer floor = form.getFloorNumber();
@@ -1648,6 +2013,72 @@ public class ApartmentController extends HttpServlet {
         return errors;
     }
 
+    /**
+     * Format hiển thị định danh: [tên tòa] - [số tầng] [mã căn]
+     * Ví dụ: A - 4 A-0401
+     */
+    private String formatApartmentIdentity(Apartment a) {
+        if (a == null) {
+            return "";
+        }
+        String building = a.getBuilding() == null ? "" : a.getBuilding();
+        String floor = a.getFloorNumber() == null ? "" : String.valueOf(a.getFloorNumber());
+        String code = a.getApartmentCode() == null ? "" : a.getApartmentCode();
+        return building + " - " + floor + " " + code;
+    }
+
+    /**
+     * Sinh mã căn từ tòa + tầng + số thứ tự unit trên tầng.
+     * Format: {TOKEN}-{FF}{UU}  ví dụ tòa A tầng 4 unit 1 → A-0401
+     * Token lấy từ tên tòa (A, Tòa B → B). Unit tăng nếu mã đã tồn tại.
+     */
+    private String generateApartmentCode(String building, Integer floorNumber) {
+        String token = extractBuildingToken(building);
+        if (token == null || floorNumber == null) {
+            return null;
+        }
+        int startUnit = apartmentDAO.countByBuildingAndFloor(building, floorNumber) + 1;
+        if (startUnit < 1) {
+            startUnit = 1;
+        }
+        for (int unit = startUnit; unit <= 99; unit++) {
+            String code = token + "-"
+                    + String.format("%02d", floorNumber)
+                    + String.format("%02d", unit);
+            if (code.length() > 20) {
+                return null;
+            }
+            if (!apartmentDAO.existsByCode(code)) {
+                return code;
+            }
+        }
+        return null;
+    }
+
+    /** Lấy token tòa để ghép mã: "Tòa A" / "A" → "A"; "B2" → "B2". */
+    private String extractBuildingToken(String building) {
+        if (building == null) {
+            return null;
+        }
+        String trimmed = building.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        java.util.regex.Matcher m = BUILDING_TOKEN_PATTERN.matcher(trimmed);
+        if (m.find()) {
+            String token = m.group(1).toUpperCase();
+            if (token.length() > 5) {
+                token = token.substring(0, 5);
+            }
+            return token;
+        }
+        String cleaned = trimmed.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+        if (cleaned.isEmpty()) {
+            return null;
+        }
+        return cleaned.length() > 5 ? cleaned.substring(0, 5) : cleaned;
+    }
+
     private Integer parseId(String raw) {
         if (raw == null || raw.trim().isEmpty()) {
             return null;
@@ -1660,7 +2091,7 @@ public class ApartmentController extends HttpServlet {
         }
     }
 
-    /** ADMIN / MANAGER: thêm + sửa + disable */
+   
     private boolean canManage(String role) {
         return AppConstants.ROLE_ADMIN.equals(role) || AppConstants.ROLE_MANAGER.equals(role);
     }
@@ -1671,10 +2102,7 @@ public class ApartmentController extends HttpServlet {
                 || AppConstants.ROLE_STAFF.equals(role);
     }
 
-    /**
-     * Chi tiết: ADMIN/MANAGER/STAFF xem mọi căn;
-     * RESIDENT chỉ xem căn đang được gán (is_current).
-     */
+    
     private boolean canViewDetail(User user, int apartmentId) {
         if (user == null || user.getRole() == null) {
             return false;

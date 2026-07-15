@@ -10,7 +10,8 @@ Tổng hợp rule từ UC-APT-01 … 10 + Permission Matrix.
 | ID | Rule |
 |----|------|
 | BR-A01 | `apartment_code` **unique** toàn hệ thống. |
-| BR-A02 | `apartment_code` **không đổi** sau khi tạo. |
+| BR-A02 | Định danh căn **không đổi** sau khi tạo: `apartment_code` + `building` + `floor_number`. Format hiển thị: **`[tên tòa] - [số tầng] [mã căn]`** (vd. `A - 4 A-0401`). |
+| BR-A02b | **Create**: user chỉ nhập tòa + tầng; hệ thống **tự sinh** mã `{TOKEN}-{FF}{UU}` (vd. `A-0401`). Trùng mã → không insert + thông báo đã tồn tại. |
 | BR-A03 | `occupancy_type` ∈ {OWNED, RENTED}. |
 | BR-A04 | `status` ∈ {ACTIVE, INACTIVE}; mặc định tạo = **ACTIVE**. |
 | BR-A05 | `floor_number` ∈ [0, 200]; `area_m2` ∈ [15, 10000]. |
@@ -53,6 +54,7 @@ Tổng hợp rule từ UC-APT-01 … 10 + Permission Matrix.
 | BR-O04 | User gán phải `is_active = 1`. |
 | BR-O05 | Không gán trùng đúng owner hiện tại. |
 | BR-O06 | Chỉ ADMIN/MANAGER. |
+| BR-O07 | Gán owner: nếu user **đã có** trong thành viên hộ (trùng họ tên) → **không thêm** dòng TV mới; flash báo đã có. |
 
 ---
 
@@ -80,7 +82,9 @@ Tổng hợp rule từ UC-APT-01 … 10 + Permission Matrix.
 | BR-R04 | Phone optional; format 9–11 số. |
 | BR-R05 | DOB optional; không future. |
 | BR-R06 | Thêm: `is_active = 1`. |
-| BR-R07 | **Remove = soft delete** `is_active = 0` (không hard delete MVP). |
+| BR-R07 | **Remove TV = hard delete** row `household_members` (UI biến mất). |
+| BR-R08 | Xóa TV **là chủ sở hữu** (quan hệ `Chủ hộ` hoặc trùng tên owner) → **gỡ luôn OWNER**. |
+| BR-R09 | Gán owner sync 1 dòng TV **Chủ hộ**; xóa dòng Chủ hộ = gỡ owner tương ứng. |
 | BR-R08 | Update không đổi `apartment_id`. |
 | BR-R09 | Chỉ ADMIN/MANAGER add/edit/remove. |
 | BR-R10 | STAFF xem list/detail TV; RESIDENT không quản lý list TV toàn tòa. |

@@ -45,6 +45,7 @@
 | **BR-T11** | Chỉ ADMIN/MANAGER. |
 | **BR-T12** | Ghi history: `ASSIGN_TENANT` / `CHANGE_TENANT_REP`. |
 | **BR-T13** | Không tự đổi `occupancy_type` căn (RENTED/OWNED). |
+| **BR-T14** | Form gán: **User có sẵn** hoặc **Người mới** (tạo RESIDENT + gán). Gợi ý từ thành viên hộ. Pass mặc định `123456`. |
 
 ### Đại diện thuê vs người thuê
 

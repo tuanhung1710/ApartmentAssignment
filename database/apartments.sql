@@ -1,5 +1,10 @@
 -- Bảng căn hộ – UC Thêm căn hộ (US-APT-01)
 -- Chạy trên SQL Server database ApartmentManagement
+--
+-- Định danh nghiệp vụ:
+--   Hiển thị: [tên tòa] - [số tầng] [mã căn]   vd. A - 4 A-0401
+--   Mã lưu:   {TOKEN}-{FF}{UU}                 vd. A-0401
+--   Create: server tự sinh mã; UNIQUE(apartment_code)
 
 IF OBJECT_ID(N'dbo.apartments', N'U') IS NULL
 BEGIN

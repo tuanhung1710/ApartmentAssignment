@@ -96,8 +96,7 @@
                     <th>CCCD</th>
                     <th>SĐT</th>
                     <th>Ngày sinh</th>
-                    <th>Căn</th>
-                    <th>Tòa</th>
+                    <th>Định danh căn<br/><span class="small fw-normal text-muted">[tòa] - [tầng] [mã]</span></th>
                     <th>Status</th>
                     <c:if test="${canManage}"><th>Thao tác</th></c:if>
                 </tr>
@@ -106,7 +105,7 @@
                 <c:choose>
                     <c:when test="${empty members}">
                         <tr>
-                            <td colspan="${canManage ? 10 : 9}" class="text-center text-muted py-5">
+                            <td colspan="${canManage ? 9 : 8}" class="text-center text-muted py-5">
                                 <i class="bi bi-inbox display-6 d-block mb-2"></i>
                                 <c:choose>
                                     <c:when test="${hasFilter}">
@@ -138,10 +137,9 @@
                                 </td>
                                 <td>
                                     <a href="${pageContext.request.contextPath}/apartment?action=detail&amp;id=${m.apartmentId}">
-                                        <c:out value="${m.apartmentCode}"/>
+                                        <c:out value="${m.building}"/> - <c:out value="${m.floorNumber}"/> <c:out value="${m.apartmentCode}"/>
                                     </a>
                                 </td>
-                                <td><c:out value="${empty m.building ? '—' : m.building}"/></td>
                                 <td>
                                     <c:choose>
                                         <c:when test="${m.isActive}">

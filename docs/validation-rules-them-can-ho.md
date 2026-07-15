@@ -37,32 +37,30 @@
 
 ---
 
-## 3. Apartment Code (`apartmentCode`)
+## 3. Apartment Code (`apartmentCode`) — **tự sinh, không nhập form**
+
+User **không** nhập mã khi create. Server sinh sau khi validate tòa + tầng.
 
 | Rule ID | Rule | Chi tiết | Message |
 |---------|------|----------|---------|
-| VR-CODE-01 | **Required** | Không null, không rỗng sau `trim()` | Vui lòng nhập mã căn hộ. |
-| VR-CODE-02 | **Trim** | Cắt space 2 đầu trước validate/lưu | (im lặng) |
-| VR-CODE-03 | **Format / Pattern** | Regex: `^[A-Za-z0-9][A-Za-z0-9_-]{0,19}$` | Mã căn hộ chỉ gồm chữ, số, gạch ngang hoặc gạch dưới (tối đa 20 ký tự). |
-| VR-CODE-04 | **Max length** | ≤ 20 (nằm trong pattern) | Cùng VR-CODE-03 |
-| VR-CODE-05 | **Không khoảng trắng giữa** | Pattern không cho space | Cùng VR-CODE-03 |
-| VR-CODE-06 | **Ký tự cho phép** | `A-Z a-z 0-9 _ -` ; ký tự đầu phải chữ hoặc số | Cùng VR-CODE-03 |
-| VR-DUP-01 | **Duplicate check** | `ApartmentDAO.existsByCode(code) == false` | Mã căn hộ đã tồn tại. |
+| VR-CODE-01 | **Auto-generate** | `{TOKEN}-{FF}{UU}` · TOKEN từ tên tòa (A, Tòa B→B) · FF = tầng 2 số · UU = unit 2 số trên tầng | — |
+| VR-CODE-02 | **Bỏ qua input client** | `form.setApartmentCode(null)` rồi gán mã sinh | (im lặng) |
+| VR-CODE-03 | **Độ dài** | ≤ 20 (cột DB) | Không thể sinh mã căn hộ… |
+| VR-CODE-04 | **Unit tăng nếu trùng** | Thử unit từ count+1 → 99, lấy mã `existsByCode == false` đầu tiên | — |
+| VR-DUP-01 | **Duplicate check** | Sau khi sinh: `existsByCode` phải false | Đã tồn tại căn hộ với mã {code} ({identity}). |
 
-### Ví dụ Apartment Code
+### Format hiển thị định danh
 
-| Input | Kết quả | Rule |
-|-------|---------|------|
-| `A-1201` | Pass | — |
-| `B_03` | Pass | — |
-| `1201A` | Pass | — |
-| `` (rỗng) | Fail | VR-CODE-01 |
-| `  ` (space) | Fail sau trim | VR-CODE-01 |
-| `A 1201` | Fail | VR-CODE-03 |
-| `-A01` | Fail (bắt đầu bằng `-`) | VR-CODE-03 |
-| `A@01` | Fail | VR-CODE-03 |
-| 21 ký tự hợp lệ | Fail | VR-CODE-04 |
-| Trùng DB | Fail | VR-DUP-01 |
+`[tên tòa] - [số tầng] [mã căn]` · ví dụ: **`A - 4 A-0401`**
+
+### Ví dụ sinh mã
+
+| Tòa nhập | Tầng | Unit | Mã sinh | Hiển thị |
+|----------|------|------|---------|----------|
+| `A` | 4 | 1 | `A-0401` | `A - 4 A-0401` |
+| `Tòa B` | 3 | 2 | `B-0302` | `Tòa B - 3 B-0302` |
+| `A` | 12 | 1 | `A-1201` | `A - 12 A-1201` |
+| Trùng mã đã có | — | — | Fail VR-DUP-01 | Message tồn tại |
 
 ---
 

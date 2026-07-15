@@ -15,13 +15,14 @@
 ## 1. User Story
 
 **Là** Quản lý tòa nhà (Manager) hoặc Quản trị viên (Admin),  
-**tôi muốn** cập nhật thông tin một căn hộ đã có (tòa nhà, tầng, diện tích, loại hình, trạng thái, ghi chú),  
+**tôi muốn** cập nhật thông tin một căn hộ đã có (diện tích, loại hình, trạng thái, ghi chú),  
 **để** dữ liệu căn hộ luôn chính xác phục vụ gán cư dân và tính phí.
 
 ### Giá trị nghiệp vụ
-- Sửa sai sót khi nhập liệu ban đầu.
+- Sửa sai sót diện tích / loại hình / ghi chú khi nhập liệu ban đầu.
 - Cập nhật trạng thái ACTIVE/INACTIVE khi căn ngừng sử dụng tạm thời.
-- Không làm hỏng liên kết theo `apartment_id` (mã căn **không đổi** sau khi tạo).
+- Không làm hỏng liên kết theo `apartment_id` và **định danh căn**  
+  format **`[tên tòa] - [số tầng] [mã căn]`** (code + building + floor **không đổi** sau khi tạo).
 
 ---
 
@@ -42,7 +43,7 @@
 | 1 | Mở **Danh sách căn hộ** | `GET /apartment?action=list` |
 | 2 | Bấm **Sửa** trên một dòng | `GET /apartment?action=edit&id={id}` |
 | 3 | — | Kiểm tra login + role; `findById`; load form có data |
-| 4 | Xem **Mã căn** (chỉ đọc), sửa các field được phép | Form edit |
+| 4 | Xem định danh **`[tòa] - [tầng] [mã]`** (chỉ đọc); sửa diện tích / loại / status / notes | Form edit |
 | 5 | Bấm **Lưu** | `POST action=update` + `apartmentId` |
 | 6 | — | Validate field; `update` DB; set `updated_at` |
 | 7 | — | Flash *Cập nhật căn hộ thành công.* |
@@ -82,7 +83,7 @@
 
 ### Thành công
 - Bản ghi `apartments` theo `apartment_id` đã đổi các cột cho phép.
-- `apartment_code` **không đổi**.
+- `apartment_code`, `building`, `floor_number` **không đổi** (định danh `[tòa] - [tầng] [mã]`).
 - `updated_at` được cập nhật (SYSUTCDATETIME).
 - User thấy flash success và list phản ánh data mới.
 
@@ -98,9 +99,9 @@
 |---|----------|
 | AC-01 | ADMIN/MANAGER mở được form sửa từ list |
 | AC-02 | Form hiển thị đúng data hiện tại của căn |
-| AC-03 | Mã căn **hiển thị nhưng không sửa được** |
-| AC-04 | Sửa building/floor/area/occupancy/status/notes hợp lệ → lưu OK + redirect list + flash |
-| AC-05 | Validate giống rule create (trừ unique code) |
+| AC-03 | Định danh **`[tòa] - [tầng] [mã]`** hiển thị; mã / tòa / tầng **không sửa được** |
+| AC-04 | Sửa area/occupancy/status/notes hợp lệ → lưu OK + redirect + flash; identity giữ nguyên |
+| AC-05 | Validate field được sửa (area, occupancy, status, notes); identity lấy từ DB |
 | AC-06 | id không tồn tại → không crash, thông báo rõ |
 | AC-07 | STAFF/RESIDENT không cập nhật được |
 | AC-08 | Hủy không lưu thay đổi |
@@ -114,7 +115,7 @@
 | ID | Rule |
 |----|------|
 | BR-U01 | Chỉ **ADMIN**, **MANAGER** được cập nhật căn hộ. |
-| BR-U02 | **Không cho đổi `apartment_code`** sau khi tạo (ổn định mã định danh nghiệp vụ). |
+| BR-U02 | **Không cho đổi định danh căn** sau khi tạo: `apartment_code` + `building` + `floor_number`. Format hiển thị: **`[tên tòa] - [số tầng] [mã căn]`**. |
 | BR-U03 | Khóa cập nhật theo **`apartment_id`** (PK). |
 | BR-U04 | `occupancy_type` ∈ {OWNED, RENTED}. |
 | BR-U05 | `status` ∈ {ACTIVE, INACTIVE}. |
@@ -129,15 +130,16 @@
 | Field | Required | Rule | Message |
 |-------|----------|------|---------|
 | `apartmentId` | Yes | Integer > 0, tồn tại DB | Không tìm thấy căn hộ. / ID không hợp lệ. |
-| `apartmentCode` | — | **Không nhận sửa** (bỏ qua input nếu client cố gửi) | — |
-| `building` | Yes | trim, 1–50 ký tự | Vui lòng nhập tòa nhà. / tối đa 50 ký tự |
-| `floorNumber` | Yes | Integer 0–200 | Tầng phải là số nguyên từ 0 đến 200. |
+| `apartmentCode` | — | **Không nhận sửa** — server ghi đè từ DB | — |
+| `building` | — | **Không nhận sửa** — server ghi đè từ DB | — |
+| `floorNumber` | — | **Không nhận sửa** — server ghi đè từ DB | — |
 | `areaM2` | Yes | Decimal 15–10000, scale 2 | Diện tích phải từ 15 m² trở lên (tối đa 10.000 m²). |
 | `occupancyType` | Yes | OWNED \| RENTED | Loại hình sử dụng không hợp lệ… |
 | `status` | Yes* | ACTIVE \| INACTIVE (*default ACTIVE nếu rỗng) | Trạng thái không hợp lệ… |
 | `notes` | No | ≤ 500 | Ghi chú tối đa 500 ký tự. |
 
-**Không áp dụng** duplicate check mã căn khi update (mã không đổi).
+**Không áp dụng** duplicate check mã căn khi update.  
+Server **bỏ qua** mọi thay đổi client gửi lên `apartmentCode` / `building` / `floorNumber`.
 
 ---
 
@@ -159,7 +161,9 @@
 - Tái sử dụng `form.jsp` với `formMode = edit`.
 - Tiêu đề: **Cập nhật căn hộ**.
 - Hidden: `action=update`, `apartmentId`.
-- `apartmentCode`: `readonly` / disabled + hiển thị.
+- Dòng định danh readonly: **`[tòa] - [tầng] [mã]`**.
+- `apartmentCode`, `building`, `floorNumber`: `readonly`.
+- Field sửa được: `areaM2`, `occupancyType`, `status`, `notes`.
 - List: cột **Thao tác** → nút **Sửa** (chỉ `canCreate` = ADMIN/MANAGER).
 
 ---
@@ -170,13 +174,14 @@
 
 | Test ID | Scenario | Steps | Expected | Priority |
 |---------|----------|-------|----------|----------|
-| TC-APT-U-001 | Cập nhật thành công full field | Login manager → list → Sửa 1 căn → đổi tòa/tầng/DT/notes → Lưu | Flash success; list/DB đổi đúng; mã căn giữ nguyên | P0 |
+| TC-APT-U-001 | Cập nhật thành công field được phép | Login manager → list → Sửa 1 căn → đổi DT/notes → Lưu | Flash success; area/notes đổi; mã–tòa–tầng giữ nguyên | P0 |
 | TC-APT-U-002 | Đổi status ACTIVE→INACTIVE | Sửa → chọn INACTIVE → Lưu | status = INACTIVE trên list | P1 |
 | TC-APT-U-003 | Đổi occupancy OWNED→RENTED | Sửa → RENTED → Lưu | occupancy cập nhật | P1 |
 | TC-APT-U-004 | Chỉ sửa notes | Đổi notes → Lưu | notes mới; field khác giữ | P1 |
 | TC-APT-U-005 | Admin cập nhật được | Login admin → Sửa → Lưu | Thành công | P1 |
 | TC-APT-U-006 | Hủy không lưu | Sửa → đổi field → Hủy | DB không đổi | P1 |
-| TC-APT-U-007 | Mã căn không đổi được | Form edit: mã readonly; cố tình không submit code mới | DB `apartment_code` giữ nguyên | P0 |
+| TC-APT-U-007 | Định danh không đổi được | Form edit: code/building/floor readonly; hiển thị `[tòa] - [tầng] [mã]` | DB identity giữ nguyên | P0 |
+| TC-APT-U-008 | Client POST giả identity | DevTools đổi building/floor/code rồi submit | Server bỏ qua; DB identity không đổi | P0 |
 
 ### Negative
 
@@ -184,8 +189,8 @@
 |---------|----------|-------|----------|----------|
 | TC-APT-U-101 | id không tồn tại | `/apartment?action=edit&id=999999` | Flash *Không tìm thấy căn hộ.* + list | P0 |
 | TC-APT-U-102 | id không hợp lệ | `edit&id=abc` | Lỗi ID + list | P1 |
-| TC-APT-U-103 | Thiếu building | Xóa tòa → Lưu | Lỗi validate; không update | P0 |
-| TC-APT-U-104 | Floor ngoài biên | Tầng = -1 hoặc 201 | Lỗi tầng | P0 |
+| TC-APT-U-103 | (N/A update) Building readonly | Form edit không cho sửa tòa | Input readonly / không submit đổi | P1 |
+| TC-APT-U-104 | (N/A update) Floor readonly | Form edit không cho sửa tầng | Input readonly / không submit đổi | P1 |
 | TC-APT-U-105 | Area = 0 | DT = 0 | Lỗi diện tích | P0 |
 | TC-APT-U-106 | STAFF không sửa | Login staff → list (nếu có) / URL edit | Không có nút Sửa / bị chặn | P0 |
 | TC-APT-U-107 | RESIDENT không sửa | URL edit | Bị chặn | P0 |
@@ -215,7 +220,7 @@
 
 ## 14. Out of Scope
 
-- Đổi mã căn hộ  
+- Đổi mã căn hộ / tòa nhà / số tầng (định danh cố định sau tạo)  
 - Xóa cứng căn hộ  
 - Gán/gỡ cư dân  
 - Lịch sử audit chi tiết (ai sửa lúc nào) ngoài `updated_at`  
