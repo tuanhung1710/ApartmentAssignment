@@ -18,10 +18,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Bảo vệ URL theo session + role. Public: /auth (login), assets tĩnh. Role map
- * mở rộng khi module thêm URL.
- */
 @WebFilter(filterName = "AuthFilter", urlPatterns = {"/*"})
 public class AuthFilter implements Filter {
 
@@ -37,13 +33,16 @@ public class AuthFilter implements Filter {
             "/images/"
     ));
 
-    /**
-     * path prefix -> roles được phép (rỗng = mọi user đã login)
-     */
+
     private static final Map<String, Set<String>> ROLE_RULES = new HashMap<>();
 
     static {
         ROLE_RULES.put("/admin", set(AppConstants.ROLE_ADMIN));
+        ROLE_RULES.put("/building", set(
+                AppConstants.ROLE_ADMIN,
+                AppConstants.ROLE_MANAGER,
+                AppConstants.ROLE_STAFF
+        ));
         ROLE_RULES.put("/apartment", set(
                 AppConstants.ROLE_ADMIN,
                 AppConstants.ROLE_MANAGER,
@@ -74,11 +73,7 @@ public class AuthFilter implements Filter {
                 AppConstants.ROLE_STAFF,
                 AppConstants.ROLE_RESIDENT
         ));
-        // Module TV2–TV5: khi thêm servlet, bổ sung prefix tại đây nếu cần siết role
-        // ROLE_RULES.put("/apartment", ...);  // TV2
-        // ROLE_RULES.put("/fee", ...);        // TV3
-        // ROLE_RULES.put("/request", ...);    // TV4/TV5
-        // ROLE_RULES.put("/admin", ...);      // TV5 — đã map ADMIN ở trên
+        
     }
 
     private static Set<String> set(String... roles) {
@@ -98,13 +93,34 @@ public class AuthFilter implements Filter {
             path = "/";
         }
 
+        HttpSession session = request.getSession(false);
+        User user = session == null ? null : (User) session.getAttribute(AppConstants.SESSION_USER);
+        boolean loginRequest = isLoginRequest(request, path);
+        boolean staticAsset = isStaticAsset(path);
+
+        
+        if (loginRequest) {
+            applyNoStoreHeaders(response);
+            if (user != null) {
+                response.sendRedirect(contextPath + "/dashboard");
+                return;
+            }
+        }
+
+        
+        if (isLogoutRequest(request, path)) {
+            applyNoStoreHeaders(response);
+        }
+
         if (isPublic(path)) {
             chain.doFilter(request, response);
             return;
         }
 
-        HttpSession session = request.getSession(false);
-        User user = session == null ? null : (User) session.getAttribute(AppConstants.SESSION_USER);
+        
+        if (!staticAsset) {
+            applyNoStoreHeaders(response);
+        }
 
         if (user == null) {
             response.sendRedirect(contextPath + "/auth?action=login");
@@ -119,16 +135,29 @@ public class AuthFilter implements Filter {
         chain.doFilter(request, response);
     }
 
-    private boolean isPublic(String path) {
-        if (PUBLIC_EXACT.contains(path)) {
-            return true;
+    
+    private boolean isLoginRequest(HttpServletRequest request, String path) {
+        if (!"/auth".equals(path)) {
+            return false;
         }
-        for (String prefix : PUBLIC_PREFIX) {
-            if (path.equals(prefix) || path.startsWith(prefix)) {
-                return true;
-            }
+        return "login".equals(request.getParameter("action"));
+    }
+
+    private boolean isLogoutRequest(HttpServletRequest request, String path) {
+        if (!"/auth".equals(path)) {
+            return false;
         }
-        // file tĩnh phổ biến
+        return "logout".equals(request.getParameter("action"));
+    }
+
+    
+    private void applyNoStoreHeaders(HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0, private");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
+    }
+
+    private boolean isStaticAsset(String path) {
         return path.endsWith(".css")
                 || path.endsWith(".js")
                 || path.endsWith(".png")
@@ -137,7 +166,23 @@ public class AuthFilter implements Filter {
                 || path.endsWith(".gif")
                 || path.endsWith(".ico")
                 || path.endsWith(".woff")
-                || path.endsWith(".woff2");
+                || path.endsWith(".woff2")
+                || path.startsWith("/assets/")
+                || path.startsWith("/css/")
+                || path.startsWith("/js/")
+                || path.startsWith("/images/");
+    }
+
+    private boolean isPublic(String path) {
+        if (PUBLIC_EXACT.contains(path) || isStaticAsset(path)) {
+            return true;
+        }
+        for (String prefix : PUBLIC_PREFIX) {
+            if (path.equals(prefix) || path.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isRoleAllowed(String path, String role) {
@@ -147,7 +192,7 @@ public class AuthFilter implements Filter {
                 return entry.getValue().contains(role);
             }
         }
-        // path chưa khai báo rule: cho user đã login (MVP)
+        
         return true;
     }
 }
