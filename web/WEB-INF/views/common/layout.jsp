@@ -5,6 +5,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>${empty pageTitle ? 'Apartment Management' : pageTitle} | Skyland Apartment</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -38,13 +41,6 @@
             <%-- Flash success/error (đã move từ session sang request ở servlet) --%>
             <%@ include file="/WEB-INF/views/common/flash.jsp" %>
 
-            <%--
-                Cách cắm trang con (dùng cho mọi module TV2–TV5):
-                1. Servlet setAttribute("pageTitle", "...")
-                2. Servlet setAttribute("contentPage", "/WEB-INF/views/.../xxx.jsp")
-                3. Forward sang /WEB-INF/views/common/layout.jsp
-                Không cần sửa file layout này.
-            --%>
             <c:if test="${not empty contentPage}">
                 <jsp:include page="${contentPage}" />
             </c:if>
@@ -55,5 +51,18 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    
+    window.addEventListener('pageshow', function (event) {
+        var nav = window.performance && window.performance.getEntriesByType
+            ? window.performance.getEntriesByType('navigation')[0]
+            : null;
+        var fromBfCache = event.persisted
+            || (nav && nav.type === 'back_forward');
+        if (fromBfCache) {
+            window.location.reload();
+        }
+    });
+</script>
 </body>
 </html>
