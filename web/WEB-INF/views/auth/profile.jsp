@@ -56,7 +56,7 @@
             </dd>
         </dl>
         <p class="form-text text-muted mt-3 mb-0">
-            Username và vai trò không thể tự đổi. Liên hệ Admin nếu cần hỗ trợ.
+            Username, email và vai trò không thể tự đổi. Liên hệ Admin nếu cần hỗ trợ.
         </p>
     </div>
 </div>

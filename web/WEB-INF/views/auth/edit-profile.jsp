@@ -20,10 +20,12 @@
             </div>
 
             <div class="row g-3">
+                <%-- Email chỉ hiển thị — không name → không submit; server cũng bỏ qua param email --%>
                 <div class="col-12 col-md-6">
                     <label class="form-label" for="email">Email</label>
-                    <input type="email" class="form-control" id="email" name="email"
-                           value="${profile.email}" placeholder="vd: ban@email.com">
+                    <input type="email" class="form-control" id="email"
+                           value="${profile.email}" readonly>
+                    <div class="form-text">Email do Ban Quản Lý cấp, không thể tự đổi.</div>
                 </div>
                 <div class="col-12 col-md-6">
                     <label class="form-label" for="phone">Số điện thoại</label>
