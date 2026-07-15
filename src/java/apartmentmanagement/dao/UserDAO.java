@@ -67,9 +67,6 @@ public class UserDAO extends DBContext {
         String sql = "SELECT * FROM users WHERE username = ?";
         try {
             connection = getConnection();
-            if (connection == null) {
-                return null;
-            }
             statement = connection.prepareStatement(sql);
             statement.setString(1, username);
             resultSet = statement.executeQuery();
@@ -84,18 +81,76 @@ public class UserDAO extends DBContext {
         return null;
     }
 
-    public boolean updateProfile(User user) {
-        String sql = "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
+    
+    public User findActiveByUsername(String username) {
+        String sql = "SELECT * FROM users WHERE username = ? AND is_active = 1";
         try {
             connection = getConnection();
-            if (connection == null) {
-                return false;
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, username);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return getFromResultSet(resultSet);
             }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.findActiveByUsername error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return null;
+    }
+
+    
+    public User findActiveByUsernameAndEmail(String username, String email) {
+        String sql = "SELECT * FROM users WHERE username = ? AND is_active = 1 "
+                + "AND email IS NOT NULL AND LOWER(email) = LOWER(?)";
+        try {
+            connection = getConnection();
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, username);
+            statement.setString(2, email);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return getFromResultSet(resultSet);
+            }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.findActiveByUsernameAndEmail error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return null;
+    }
+
+    
+    public User findActiveByUsernameAndPhone(String username, String phone) {
+        String sql = "SELECT * FROM users WHERE username = ? AND is_active = 1 "
+                + "AND phone IS NOT NULL AND phone = ?";
+        try {
+            connection = getConnection();
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, username);
+            statement.setString(2, phone);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return getFromResultSet(resultSet);
+            }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.findActiveByUsernameAndPhone error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return null;
+    }
+
+    
+    public boolean updateProfile(User user) {
+        String sql = "UPDATE users SET full_name = ?, phone = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
+        try {
+            connection = getConnection();
             statement = connection.prepareStatement(sql);
             statement.setString(1, user.getFullName());
-            statement.setString(2, user.getEmail());
-            statement.setString(3, user.getPhone());
-            statement.setInt(4, user.getUserId());
+            statement.setString(2, user.getPhone());
+            statement.setInt(3, user.getUserId());
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("UserDAO.updateProfile error: " + e.getMessage());
@@ -105,16 +160,11 @@ public class UserDAO extends DBContext {
         }
     }
 
-    /**
-     * Kiểm tra mật khẩu hiện tại (plain text theo seed data đồ án).
-     */
+    
     public boolean checkPassword(int userId, String oldPassword) {
         String sql = "SELECT user_id FROM users WHERE user_id = ? AND password = ?";
         try {
             connection = getConnection();
-            if (connection == null) {
-                return false;
-            }
             statement = connection.prepareStatement(sql);
             statement.setInt(1, userId);
             statement.setString(2, oldPassword);
@@ -132,9 +182,6 @@ public class UserDAO extends DBContext {
         String sql = "UPDATE users SET password = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
         try {
             connection = getConnection();
-            if (connection == null) {
-                return false;
-            }
             statement = connection.prepareStatement(sql);
             statement.setString(1, newPassword);
             statement.setInt(2, userId);
@@ -147,7 +194,7 @@ public class UserDAO extends DBContext {
         }
     }
 
-    /** Alias rõ nghĩa cho updatePassword (giữ changePassword để tương thích). */
+    
     public boolean updatePassword(int userId, String newPassword) {
         return changePassword(userId, newPassword);
     }
@@ -178,9 +225,6 @@ public class UserDAO extends DBContext {
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try {
             connection = getConnection();
-            if (connection == null) {
-                return -1;
-            }
             statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             statement.setString(1, user.getUsername());
             statement.setString(2, user.getPassword());
@@ -210,9 +254,6 @@ public class UserDAO extends DBContext {
         String sql = "UPDATE users SET is_active = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
         try {
             connection = getConnection();
-            if (connection == null) {
-                return false;
-            }
             statement = connection.prepareStatement(sql);
             statement.setBoolean(1, isActive);
             statement.setInt(2, userId);
@@ -229,9 +270,6 @@ public class UserDAO extends DBContext {
         String sql = "SELECT COUNT(*) FROM users";
         try {
             connection = getConnection();
-            if (connection == null) {
-                return 0;
-            }
             statement = connection.prepareStatement(sql);
             resultSet = statement.executeQuery();
             if (resultSet.next()) {
@@ -249,9 +287,6 @@ public class UserDAO extends DBContext {
         String sql = "SELECT COUNT(*) FROM users WHERE is_active = ?";
         try {
             connection = getConnection();
-            if (connection == null) {
-                return 0;
-            }
             statement = connection.prepareStatement(sql);
             statement.setBoolean(1, active);
             resultSet = statement.executeQuery();
