@@ -13,7 +13,7 @@
 
 ## 1. User Story
 
-**Là** Admin/Manager, **tôi muốn** thêm thành viên sinh sống trong căn (họ tên, quan hệ, CCCD, SĐT, ngày sinh), **để** quản lý nhân khẩu gắn căn hộ.
+**Là** Admin/Manager, **tôi muốn** thêm thành viên sinh sống trong căn (họ tên, **vai trò** Chủ hộ/Thành viên, CCCD, SĐT, ngày sinh), **để** quản lý nhân khẩu gắn căn hộ.
 
 ---
 
@@ -31,7 +31,7 @@
 |----|------|
 | **BR-M01** | Chỉ ADMIN/MANAGER được thêm thành viên. |
 | **BR-M02** | Thành viên gắn **1** `apartment_id` (không dùng `users` — nhập tay nhân khẩu). |
-| **BR-M03** | **Relationship** (quan hệ): bắt buộc; gợi ý: Chủ hộ, Vợ/Chồng, Con, Cha/Mẹ, Anh/Chị/Em, Khác (cho phép text tự do trong danh sách gợi ý + Other). |
+| **BR-M03** | **Vai trò** (cột DB `relationship`): bắt buộc; **chỉ 2 giá trị**: `Chủ hộ` \| `Thành viên`. Không dùng quan hệ gia đình (Vợ/Chồng, Con…). |
 | **BR-M04** | **CCCD / CMND** (`id_number`): optional nhưng nếu nhập phải đúng format (9–12 chữ số). |
 | **BR-M05** | **Phone**: optional; nếu nhập 9–11 chữ số (có thể bắt đầu 0). |
 | **BR-M06** | **Date of Birth**: optional; nếu nhập không được **sau hôm nay**; khuyến nghị tuổi ≥ 0. |
@@ -50,7 +50,7 @@
 |-------|-----------|----------|------|---------|
 | apartmentId | hidden | Yes | >0, căn tồn tại | ID/căn không hợp lệ |
 | fullName | full_name | Yes | trim, 2–100 ký tự | Vui lòng nhập họ tên / Họ tên 2–100 ký tự |
-| relationship | relationship | Yes | trim, 1–50 | Vui lòng chọn/nhập quan hệ |
+| relationship (UI: Vai trò) | relationship | Yes | enum: `Chủ hộ` \| `Thành viên` | Vui lòng chọn vai trò / Vai trò chỉ được là Chủ hộ hoặc Thành viên |
 | idNumber (CCCD) | id_number | No | nếu có: `^\d{9,12}$` | CCCD/CMND phải gồm 9–12 chữ số |
 | phone | phone | No | nếu có: `^0?\d{9,10}$` (9–11 số) | Số điện thoại không hợp lệ |
 | dateOfBirth | date_of_birth | No | yyyy-MM-dd; ≤ today | Ngày sinh không hợp lệ / không được ở tương lai |
@@ -59,20 +59,16 @@
 
 ---
 
-## 5. Relationship (quan hệ)
+## 5. Vai trò (cột `relationship`)
 
-| Giá trị gợi ý UI | Ghi chú |
-|------------------|---------|
-| Chủ hộ | |
-| Vợ/Chồng | |
-| Con | |
-| Cha/Mẹ | |
-| Anh/Chị/Em | |
-| Ông/Bà | |
-| Cháu | |
-| Khác | Cho phép nhập tự do nếu chọn Khác (MVP: select cố định + option Khác lưu text "Khác" hoặc field text) |
+| Giá trị UI / DB | Ghi chú |
+|-----------------|---------|
+| **Chủ hộ** | Vai trò chủ hộ; gán owner có thể sync 1 dòng này |
+| **Thành viên** | Thành viên khác trong hộ |
 
-MVP implement: **select** các giá trị trên + option **Khác**.
+- UI label: **Vai trò** (không gọi “Quan hệ”).
+- MVP: **select cố định 2 option** — không free-text, không quan hệ gia đình.
+- Validate server: reject mọi giá trị ngoài 2 option trên.
 
 ---
 
@@ -91,7 +87,7 @@ MVP implement: **select** các giá trị trên + option **Khác**.
 | # | Tiêu chí |
 |---|----------|
 | AC-01 | Manager mở form từ detail → thêm TV thành công |
-| AC-02 | fullName + relationship bắt buộc |
+| AC-02 | fullName + vai trò (Chủ hộ/Thành viên) bắt buộc |
 | AC-03 | CCCD sai format → lỗi |
 | AC-04 | Phone sai format → lỗi |
 | AC-05 | DOB tương lai → lỗi |
@@ -110,7 +106,7 @@ MVP implement: **select** các giá trị trên + option **Khác**.
 | S-M01 | Thêm thành viên thành công. |
 | E-M01 | Bạn không có quyền thêm thành viên. |
 | E-M02 | Vui lòng nhập họ tên. |
-| E-M03 | Vui lòng chọn quan hệ. |
+| E-M03 | Vui lòng chọn vai trò (Chủ hộ hoặc Thành viên). |
 | E-M04 | CCCD/CMND phải gồm 9–12 chữ số. |
 | E-M05 | Số điện thoại không hợp lệ. |
 | E-M06 | Ngày sinh không hợp lệ. |

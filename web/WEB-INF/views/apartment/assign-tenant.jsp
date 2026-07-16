@@ -5,7 +5,9 @@
     <div>
         <h2 class="h4 mb-1">Gán người thuê</h2>
         <p class="text-muted small mb-0">
-            Căn <strong>${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}</strong>
+            Căn <strong><c:out value="${apartment.apartmentCode}"/></strong>
+            · Tòa <c:out value="${apartment.building}"/>
+            · Tầng ${apartment.floorNumber}
         </p>
     </div>
     <a class="btn btn-outline-secondary btn-sm"

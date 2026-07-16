@@ -524,8 +524,8 @@ private List<String> validateCreate(Apartment form) {
     return errors;
 }
 
-// Sinh mã: {TOKEN}-{FF}{UU}  (A tầng 4 unit 1 → A-0401)
-// Hiển thị: [tòa] - [tầng] [mã]  (A - 4 A-0401)
+// Sinh mã: {TOKEN}-{FF}{UU}  (A tầng 2 unit 3 → A-0203)
+// UI: cột Mã căn | Tòa | Tầng (không gộp định danh)
 // Trùng → "Đã tồn tại căn hộ với mã ..."
 ```
 
@@ -615,14 +615,21 @@ Sai 1 ký tự → nhận `null` / rỗng.
 
 ```jsp
 <table class="table table-hover">
-    <thead>...</thead>
+    <thead>
+        <tr>
+            <th>Mã căn</th>
+            <th>Tòa</th>
+            <th>Tầng</th>
+            <%-- ... --%>
+        </tr>
+    </thead>
     <tbody>
     <c:forEach var="apt" items="${apartments}">
         <tr>
-            <td>
-                <%-- Định danh: [tòa] - [tầng] [mã] --%>
-                ${apt.building} - ${apt.floorNumber} ${apt.apartmentCode}
-            </td>
+            <%-- Tách cột: không gộp định danh --%>
+            <td>${apt.apartmentCode}</td>
+            <td>${apt.building}</td>
+            <td>${apt.floorNumber}</td>
             <td>
                 <a href="${pageContext.request.contextPath}/apartment?action=edit&id=${apt.apartmentId}">
                     Sửa
@@ -712,6 +719,55 @@ FlashUtil.error(request, "Thất bại");
 FlashUtil.moveToRequest(request); // gọi trước forward trang có flash.jsp
 ```
 
+### Thành viên hộ — vai trò (không dùng quan hệ gia đình)
+
+Cột DB vẫn là `household_members.relationship` (tên cột giữ nguyên để không migrate),  
+nhưng **nghiệp vụ = vai trò trong hộ**, không phải quan hệ huyết thống.
+
+| Giá trị hợp lệ | Ý nghĩa |
+|----------------|---------|
+| `Chủ hộ` | Vai trò chủ hộ (sync khi gán owner) |
+| `Thành viên` | Thành viên khác trong hộ |
+
+```java
+// ApartmentController — chỉ 2 option
+private static final String[] RELATIONSHIP_OPTIONS = {
+    "Chủ hộ", "Thành viên"
+};
+// validate: isValidMemberRole(relationship) — reject mọi giá trị khác
+// UI label: "Vai trò" (add-member / edit-member / list / detail)
+// DAO ensureActiveMember: default fallback = "Thành viên" (không dùng "Khác")
+```
+
+**Cấm:** Vợ/Chồng, Con, Cha/Mẹ, Anh/Chị/Em, Ông/Bà, Cháu, Khác — không còn trong form/filter.
+
+### Occupancy khi kích hoạt / ACTIVE
+
+| Status | occupancy hợp lệ |
+|--------|------------------|
+| `INACTIVE` | chỉ `N/A` |
+| `ACTIVE` | `VACANT` \| `OWNED` \| `RENTED` |
+
+```text
+Kích hoạt (activate.jsp):
+  POST occupancyType = VACANT | OWNED | RENTED
+  → updateStatusAndOccupancy(ACTIVE, occupancy đã chọn)
+  → KHÔNG gọi sync ngay (giữ đúng loại hình user chọn)
+
+Auto-sync (sau gán/gỡ owner·tenant·TV):
+  có tenant → RENTED
+  có owner  → OWNED
+  có TV hộ  → OWNED
+  trống:
+    · forceEmptyToVacant=true  → VACANT
+    · false → giữ OWNED/RENTED đã chọn; còn lại VACANT
+
+reconcileAllOccupancy (mở list):
+  không ép ACTIVE trống OWNED/RENTED về VACANT
+```
+
+Detail/list badge phải khớp `apartment.occupancyType` sau activate.
+
 ---
 
 ## 11. Hướng dẫn NetBeans — tạo file đúng chỗ
@@ -758,14 +814,14 @@ Jar `lombok-*.jar` đã có trong Libraries.
 
 Làm theo đúng chuẩn — copy khung, đừng invent style mới.
 
-### 12.0. Định danh căn (toàn module)
+### 12.0. Mã căn · Tòa · Tầng (toàn module)
 
 | Mục | Quy ước |
 |-----|---------|
-| Hiển thị | **`[tên tòa] - [số tầng] [mã căn]`** · vd. `A - 4 A-0401` |
-| Mã lưu DB | `{TOKEN}-{FF}{UU}` · vd. tòa A, tầng 4, unit 01 → **`A-0401`** |
+| Hiển thị UI | **Tách 3 cột**: Mã căn · Tòa · Tầng (không gộp “Định danh”) |
+| Mã lưu DB | `{TOKEN}-{FF}{UU}` · vd. tòa A, tầng 2, unit 03 → **`A-0203`** |
 | Create | User **chỉ nhập** tòa + tầng (+ area…); **không** nhập mã |
-| Sinh mã | Server: token từ tên tòa + floor 2 số + unit 2 số (tăng nếu trùng) |
+| Sinh mã | Server: token tòa + floor 2 số + unit 2 số (max unit prefix + 1; vd. đã 2 căn tầng 2 → `A-0203`) |
 | Trùng mã | Chặn insert + message *Đã tồn tại căn hộ với mã …* |
 | Update | **Không** đổi code / building / floor |
 
@@ -819,8 +875,7 @@ requireUser → canManage → bind (có apartmentId)
 - Form dùng chung: hidden `apartmentId`
 - hidden `action` = `update` khi sửa, `create` khi thêm
 - **Edit mode**:
-  - Dòng định danh readonly: `${form.building} - ${form.floorNumber} ${form.apartmentCode}`
-  - `apartmentCode`, `building`, `floorNumber`: `readonly` (không sửa)
+  - 3 field readonly tách riêng: Mã căn · Tòa · Tầng
   - Chỉ `areaM2` (+ occupancy/status/notes) là input được sửa
 - List thêm nút:
 

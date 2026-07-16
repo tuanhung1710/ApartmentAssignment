@@ -35,9 +35,33 @@ public class DBContext {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
             connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
             return connection;
-        } catch (ClassNotFoundException | SQLException e) {
-            System.out.println("DBContext getConnection error: " + e.getMessage());
+        } catch (ClassNotFoundException e) {
+            System.out.println("DBContext: thiếu driver JDBC SQL Server (mssql-jdbc). " + e.getMessage());
             return null;
+        } catch (SQLException e) {
+            System.out.println("DBContext getConnection error: " + e.getMessage());
+            System.out.println("  → Kiểm tra SQL Server đang chạy, DB ApartmentManagement, user/pass trong DBContext.");
+            return null;
+        }
+    }
+
+    /** Test nhanh kết nối (Auth / health). */
+    public boolean testConnection() {
+        Connection c = null;
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            c = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+            return c != null && !c.isClosed();
+        } catch (ClassNotFoundException | SQLException e) {
+            System.out.println("DBContext.testConnection failed: " + e.getMessage());
+            return false;
+        } finally {
+            if (c != null) {
+                try {
+                    c.close();
+                } catch (SQLException ignored) {
+                }
+            }
         }
     }
 

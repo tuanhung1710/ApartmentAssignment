@@ -81,6 +81,9 @@ Disable (`status → INACTIVE`) khi:
 | BR-ACT-01 | ADMIN/MANAGER được kích hoạt lại nếu căn tồn tại và đang INACTIVE |
 | BR-ACT-02 | Không tự gán lại cư dân; quan hệ cư dân giữ nguyên theo `is_current` |
 | BR-ACT-03 | Không tự mở lại hợp đồng đã đóng — module HĐ tự xử lý |
+| BR-ACT-04 | Form kích hoạt **bắt buộc** chọn loại hình: `VACANT` \| `OWNED` \| `RENTED` (không N/A) |
+| BR-ACT-05 | Sau activate: status=`ACTIVE` + `occupancy_type` = **đúng giá trị đã chọn** — hiển thị trên detail/list |
+| BR-ACT-06 | Không re-sync occupancy ngay sau activate (tránh OWNED/RENTED trống bị ép VACANT). Re-sync khi gán/gỡ owner·tenant·TV |
 
 ---
 

@@ -17,10 +17,16 @@
         <p class="text-muted small mb-0">Tìm kiếm · lọc · sắp xếp · phân trang</p>
     </div>
     <c:if test="${canManage}">
-        <a class="btn btn-primary" href="${pageContext.request.contextPath}/apartment?action=create"
-           onclick="showListLoading()">
-            <i class="bi bi-plus-lg me-1"></i> Thêm căn hộ
-        </a>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary" href="${pageContext.request.contextPath}/apartment?action=init-floor"
+               onclick="showListLoading()">
+                <i class="bi bi-building-add me-1"></i> Khởi tạo tầng
+            </a>
+            <a class="btn btn-primary" href="${pageContext.request.contextPath}/apartment?action=create"
+               onclick="showListLoading()">
+                <i class="bi bi-plus-lg me-1"></i> Thêm lẻ
+            </a>
+        </div>
     </c:if>
 </div>
 
@@ -57,6 +63,8 @@
                     <option value="" ${empty occupancyFilter ? 'selected' : ''}>Tất cả</option>
                     <option value="OWNED" ${occupancyFilter == 'OWNED' ? 'selected' : ''}>OWNED</option>
                     <option value="RENTED" ${occupancyFilter == 'RENTED' ? 'selected' : ''}>RENTED</option>
+                    <option value="VACANT" ${occupancyFilter == 'VACANT' ? 'selected' : ''}>VACANT</option>
+                    <option value="N/A" ${occupancyFilter == 'N/A' ? 'selected' : ''}>N/A</option>
                 </select>
             </div>
             <div class="col-md-3 d-flex gap-2">
@@ -89,13 +97,24 @@
                     <th style="width: 50px;">#</th>
                     <th>
                         <a class="text-decoration-none text-dark" onclick="showListLoading()"
-                           href="${listBaseUrl}&amp;sort=building&amp;dir=${sort == 'building' && dir == 'asc' ? 'desc' : 'asc'}&amp;page=1">
-                            Định danh
-                            <c:if test="${sort == 'building' || sort == 'code' || sort == 'floor'}">
-                                <i class="bi bi-caret-${dir == 'asc' ? 'up' : 'down'}-fill"></i>
-                            </c:if>
+                           href="${listBaseUrl}&amp;sort=code&amp;dir=${sort == 'code' && dir == 'asc' ? 'desc' : 'asc'}&amp;page=1">
+                            Mã căn
+                            <c:if test="${sort == 'code'}"><i class="bi bi-caret-${dir == 'asc' ? 'up' : 'down'}-fill"></i></c:if>
                         </a>
-                        <div class="small fw-normal text-muted">[tòa] - [tầng] [mã]</div>
+                    </th>
+                    <th>
+                        <a class="text-decoration-none text-dark" onclick="showListLoading()"
+                           href="${listBaseUrl}&amp;sort=building&amp;dir=${sort == 'building' && dir == 'asc' ? 'desc' : 'asc'}&amp;page=1">
+                            Tòa
+                            <c:if test="${sort == 'building'}"><i class="bi bi-caret-${dir == 'asc' ? 'up' : 'down'}-fill"></i></c:if>
+                        </a>
+                    </th>
+                    <th>
+                        <a class="text-decoration-none text-dark" onclick="showListLoading()"
+                           href="${listBaseUrl}&amp;sort=floor&amp;dir=${sort == 'floor' && dir == 'asc' ? 'desc' : 'asc'}&amp;page=1">
+                            Tầng
+                            <c:if test="${sort == 'floor'}"><i class="bi bi-caret-${dir == 'asc' ? 'up' : 'down'}-fill"></i></c:if>
+                        </a>
                     </th>
                     <th>
                         <a class="text-decoration-none text-dark" onclick="showListLoading()"
@@ -118,6 +137,14 @@
                             <c:if test="${sort == 'status'}"><i class="bi bi-caret-${dir == 'asc' ? 'up' : 'down'}-fill"></i></c:if>
                         </a>
                     </th>
+                    <th>
+                        <a class="text-decoration-none text-dark" onclick="showListLoading()"
+                           href="${listBaseUrl}&amp;sort=members&amp;dir=${sort == 'members' && dir == 'asc' ? 'desc' : 'asc'}&amp;page=1">
+                            TV
+                            <c:if test="${sort == 'members'}"><i class="bi bi-caret-${dir == 'asc' ? 'up' : 'down'}-fill"></i></c:if>
+                        </a>
+                        <div class="small fw-normal text-muted">thành viên</div>
+                    </th>
                     <th>Ghi chú</th>
                     <c:if test="${canManage}">
                         <th style="min-width: 220px;">Thao tác</th>
@@ -129,7 +156,7 @@
                     <%-- Empty state --%>
                     <c:when test="${empty apartments}">
                         <tr>
-                            <td colspan="${canManage ? 7 : 6}" class="text-center py-5">
+                            <td colspan="${canManage ? 10 : 9}" class="text-center py-5">
                                 <div class="text-muted">
                                     <i class="bi bi-inbox display-6 d-block mb-2"></i>
                                     <c:choose>
@@ -163,9 +190,11 @@
                                 <td class="fw-semibold">
                                     <a class="text-decoration-none"
                                        href="${pageContext.request.contextPath}/apartment?action=detail&amp;id=${apt.apartmentId}">
-                                        ${apt.building} - ${apt.floorNumber} ${apt.apartmentCode}
+                                        <c:out value="${apt.apartmentCode}"/>
                                     </a>
                                 </td>
+                                <td><c:out value="${apt.building}"/></td>
+                                <td>${apt.floorNumber}</td>
                                 <td>
                                     <fmt:formatNumber value="${apt.areaM2}" minFractionDigits="0" maxFractionDigits="2"/> m²
                                 </td>
@@ -174,8 +203,14 @@
                                         <c:when test="${apt.occupancyType == 'OWNED'}">
                                             <span class="badge text-bg-info">OWNED</span>
                                         </c:when>
+                                        <c:when test="${apt.occupancyType == 'RENTED'}">
+                                            <span class="badge text-bg-primary">RENTED</span>
+                                        </c:when>
+                                        <c:when test="${apt.occupancyType == 'VACANT'}">
+                                            <span class="badge text-bg-light border">VACANT</span>
+                                        </c:when>
                                         <c:otherwise>
-                                            <span class="badge text-bg-secondary">RENTED</span>
+                                            <span class="badge text-bg-secondary">N/A</span>
                                         </c:otherwise>
                                     </c:choose>
                                 </td>
@@ -187,6 +222,12 @@
                                         <c:otherwise>
                                             <span class="badge text-bg-warning">INACTIVE</span>
                                         </c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <td class="text-center">
+                                    <c:choose>
+                                        <c:when test="${empty apt.memberCount}">0</c:when>
+                                        <c:otherwise>${apt.memberCount}</c:otherwise>
                                     </c:choose>
                                 </td>
                                 <td class="small text-muted text-truncate" style="max-width: 160px;">
@@ -209,7 +250,7 @@
                                             <c:choose>
                                                 <c:when test="${apt.status == 'ACTIVE'}">
                                                     <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                                                          onsubmit="return confirm('Vô hiệu hóa căn ${apt.building} - ${apt.floorNumber} ${apt.apartmentCode}?');">
+                                                          onsubmit="return confirm('Vô hiệu hóa căn ${apt.apartmentCode}?');">
                                                         <input type="hidden" name="action" value="deactivate">
                                                         <input type="hidden" name="id" value="${apt.apartmentId}">
                                                         <button type="submit" class="btn btn-sm btn-outline-warning">
@@ -218,16 +259,12 @@
                                                     </form>
                                                 </c:when>
                                                 <c:otherwise>
+                                                    <a class="btn btn-sm btn-outline-success"
+                                                       href="${pageContext.request.contextPath}/apartment?action=activate&amp;id=${apt.apartmentId}">
+                                                        <i class="bi bi-play-circle"></i> Kích hoạt
+                                                    </a>
                                                     <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                                                          onsubmit="return confirm('Kích hoạt lại căn ${apt.building} - ${apt.floorNumber} ${apt.apartmentCode}?');">
-                                                        <input type="hidden" name="action" value="activate">
-                                                        <input type="hidden" name="id" value="${apt.apartmentId}">
-                                                        <button type="submit" class="btn btn-sm btn-outline-success">
-                                                            <i class="bi bi-play-circle"></i> Kích hoạt
-                                                        </button>
-                                                    </form>
-                                                    <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                                                          onsubmit="return confirm('XÓA VĨNH VIỄN căn ${apt.building} - ${apt.floorNumber} ${apt.apartmentCode}? Không hoàn tác!');">
+                                                          onsubmit="return confirm('XÓA VĨNH VIỄN căn ${apt.apartmentCode}? Không hoàn tác!');">
                                                         <input type="hidden" name="action" value="delete">
                                                         <input type="hidden" name="id" value="${apt.apartmentId}">
                                                         <button type="submit" class="btn btn-sm btn-outline-danger">

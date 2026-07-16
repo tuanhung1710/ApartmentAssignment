@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlcmd -S localhost -U sa -P \"17102005\" -d ApartmentManagement -C -i \"database/migrate-reconcile-occupancy.sql\" -b)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(sqlcmd -S localhost -U sa -P \"17102005\" -d ApartmentManagement -C -Q \"SELECT TOP 15 apartment_code, occupancy_type, status, \\(SELECT COUNT\\(*\\) FROM household_members hm WHERE hm.apartment_id=a.apartment_id AND hm.is_active=1\\) AS tv FROM apartments a ORDER BY building, floor_number, apartment_code\" -W -s\"|\")",
+      "Bash(sqlcmd -S localhost -U sa -P \"17102005\" -d ApartmentManagement -C -Q \"SELECT apartment_code, occupancy_type, status, \\(SELECT COUNT\\(*\\) FROM household_members hm WHERE hm.apartment_id=a.apartment_id AND hm.is_active=1\\) AS tv FROM apartments a WHERE apartment_code IN \\('A-0801','A-0802','A-0901','A-1005','A-1201','A-0105'\\) ORDER BY apartment_code\" -W -s\"|\")",
+      "Bash(sqlcmd -S localhost -U sa -P \"17102005\" -d ApartmentManagement -C -Q \"SELECT definition FROM sys.check_constraints WHERE name='CK_apartments_occupancy'\" -W)"
+    ]
+  }
+}

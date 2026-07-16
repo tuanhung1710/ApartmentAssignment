@@ -17,7 +17,7 @@
 **Là** Quản lý tòa nhà (Manager) hoặc Quản trị viên (Admin),  
 **tôi muốn** thêm một căn hộ mới bằng cách nhập **tòa nhà + tầng** (và diện tích, loại hình…),  
 hệ thống **tự sinh mã căn**,  
-**để** quản lý danh mục căn hộ thống nhất theo format **`[tòa] - [tầng] [mã]`**.
+**để** quản lý danh mục căn hộ thống nhất theo **mã căn** (vd. `A-0203`), hiển thị tách cột Mã căn · Tòa · Tầng.
 
 ### Giá trị nghiệp vụ
 - Chuẩn hóa định danh căn trước khi gán cư dân / tạo phí tháng.
@@ -45,12 +45,12 @@ hệ thống **tự sinh mã căn**,
 | 4 | Bấm **Lưu** | `POST /apartment` với `action=create` |
 | 5 | — | Kiểm tra role ADMIN/MANAGER |
 | 6 | — | Validate server-side (building, floor, area…) |
-| 7 | — | **Sinh** `apartment_code` từ tòa + tầng + unit (vd. `A-0401`) |
+| 7 | — | **Sinh** `apartment_code` từ tòa + tầng + unit tăng dần (vd. tòa A tầng 2 đã có 2 căn → `A-0203`) |
 | 8 | — | Kiểm tra mã sinh ra **chưa tồn tại**; nếu trùng → lỗi + giữ form |
 | 9 | — | Insert `apartments` (`status` mặc định ACTIVE) |
-| 10 | — | Flash success kèm định danh: *Thêm căn hộ thành công. Mã: A - 4 A-0401.* |
+| 10 | — | Flash success kèm mã: *Thêm căn hộ thành công. Mã: A-0203.* |
 | 11 | — | Redirect chi tiết / list |
-| 12 | Xem căn mới hiển thị format `[tòa] - [tầng] [mã]` | — |
+| 12 | Xem list: cột **Mã căn · Tòa · Tầng** (tách riêng) | — |
 
 ---
 
@@ -90,7 +90,7 @@ hệ thống **tự sinh mã căn**,
 
 ### EF-03: Trùng mã căn hộ (sau khi hệ thống sinh mã)
 - Mã sinh ra (`apartment_code`) đã tồn tại trong DB.
-- Error: *Đã tồn tại căn hộ với mã A-0401 (A - 4 A-0401).*
+- Error: *Đã tồn tại căn hộ với mã A-0203.*
 - Giữ form + tòa/tầng/area đã nhập (không hiện mã user nhập).
 
 ### EF-04: Lỗi database / insert thất bại

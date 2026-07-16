@@ -321,7 +321,7 @@ public class HouseholdMemberDAO extends DBContext {
             return -1;
         }
         String name = fullName.trim();
-        String rel = relationship == null || relationship.isEmpty() ? "Khác" : relationship.trim();
+        String rel = relationship == null || relationship.isEmpty() ? "Thành viên" : relationship.trim();
 
         // Đã có trong thành viên hộ (cùng tên) → không thêm dòng mới
         if (existsActiveByFullName(apartmentId, name)) {

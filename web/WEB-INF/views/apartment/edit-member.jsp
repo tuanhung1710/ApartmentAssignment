@@ -5,7 +5,9 @@
     <div>
         <h2 class="h4 mb-1">Cập nhật thành viên</h2>
         <p class="text-muted small mb-0">
-            Căn <strong>${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}</strong>
+            Căn <strong><c:out value="${apartment.apartmentCode}"/></strong>
+            · Tòa <c:out value="${apartment.building}"/>
+            · Tầng ${apartment.floorNumber}
             · TV #<c:out value="${form.memberId}"/>
         </p>
     </div>
@@ -42,14 +44,15 @@
 
             <div class="mb-3">
                 <label class="form-label" for="relationship">
-                    Quan hệ <span class="text-danger">*</span>
+                    Vai trò <span class="text-danger">*</span>
                 </label>
                 <select class="form-select" id="relationship" name="relationship" required>
-                    <option value="">-- Chọn quan hệ --</option>
+                    <option value="">-- Chọn vai trò --</option>
                     <c:forEach var="rel" items="${relationshipOptions}">
                         <option value="${rel}" ${form.relationship == rel ? 'selected' : ''}>${rel}</option>
                     </c:forEach>
                 </select>
+                <div class="form-text">Chỉ 2 vai trò: <strong>Chủ hộ</strong> hoặc <strong>Thành viên</strong>.</div>
             </div>
 
             <div class="row g-2 mb-3">

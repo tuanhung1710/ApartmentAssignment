@@ -3,6 +3,8 @@ package apartmentmanagement.dao;
 import apartmentmanagement.dal.DBContext;
 import apartmentmanagement.model.Apartment;
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -13,9 +15,28 @@ import java.util.List;
 public class ApartmentDAO extends DBContext {
 
     public Apartment getFromResultSet(ResultSet rs) throws SQLException {
+        Integer memberCount = null;
+        try {
+            Object mc = rs.getObject("member_count");
+            if (mc != null) {
+                memberCount = rs.getInt("member_count");
+            }
+        } catch (SQLException ignored) {
+            // SELECT * / findById không có alias member_count
+        }
+        Integer buildingId = null;
+        try {
+            Object bid = rs.getObject("building_id");
+            if (bid != null) {
+                buildingId = ((Number) bid).intValue();
+            }
+        } catch (SQLException ignored) {
+            // DB cũ chưa có cột building_id
+        }
         return Apartment.builder()
                 .apartmentId(rs.getInt("apartment_id"))
                 .apartmentCode(rs.getString("apartment_code"))
+                .buildingId(buildingId)
                 .building(rs.getString("building"))
                 .floorNumber(rs.getInt("floor_number"))
                 .areaM2(rs.getBigDecimal("area_m2"))
@@ -24,6 +45,7 @@ public class ApartmentDAO extends DBContext {
                 .notes(rs.getString("notes"))
                 .createdAt(rs.getTimestamp("created_at"))
                 .updatedAt(rs.getTimestamp("updated_at"))
+                .memberCount(memberCount)
                 .build();
     }
 
@@ -44,7 +66,7 @@ public class ApartmentDAO extends DBContext {
     }
 
     /**
-     * Số căn cùng tòa + tầng (để sinh số thứ tự unit trong mã căn).
+     * Số căn cùng tòa + tầng (fallback đếm).
      */
     public int countByBuildingAndFloor(String building, int floorNumber) {
         String sql = "SELECT COUNT(*) FROM apartments WHERE building = ? AND floor_number = ?";
@@ -69,10 +91,60 @@ public class ApartmentDAO extends DBContext {
     }
 
     /**
+     * Unit tiếp theo cho mã căn format {TOKEN}-{FF}{UU} (vd. A-0203).
+     * Lấy max unit từ các mã có prefix {TOKEN}-{FF}, rồi +1.
+     * Ví dụ: đã có A-0201, A-0202 → trả 3.
+     *
+     * @param codePrefix prefix không gồm unit, vd. "A-02"
+     * @return unit kế tiếp (>= 1); lỗi → 1
+     */
+    public int findNextUnitByCodePrefix(String codePrefix) {
+        if (codePrefix == null || codePrefix.isEmpty()) {
+            return 1;
+        }
+        String sql = "SELECT apartment_code FROM apartments WHERE apartment_code LIKE ?";
+        int maxUnit = 0;
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return 1;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, codePrefix + "%");
+            resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                String code = resultSet.getString(1);
+                if (code == null || !code.startsWith(codePrefix)) {
+                    continue;
+                }
+                String unitPart = code.substring(codePrefix.length());
+                // Chỉ nhận unit đúng 2 chữ số (01..99)
+                if (unitPart.length() == 2 && unitPart.chars().allMatch(Character::isDigit)) {
+                    int unit = Integer.parseInt(unitPart);
+                    if (unit > maxUnit) {
+                        maxUnit = unit;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.findNextUnitByCodePrefix error: " + e.getMessage());
+            return 1;
+        } finally {
+            closeResources();
+        }
+        return maxUnit + 1;
+    }
+
+    /**
      * @return generated apartment_id, 0 nếu insert OK nhưng không lấy được key, -1 nếu lỗi
      */
     public int insert(Apartment apartment) {
-        String sql = "INSERT INTO apartments "
+        ensureOccupancyCheckConstraint();
+        // building_id optional (schema unified có cột; DB cũ có thể chưa)
+        String sqlWithBid = "INSERT INTO apartments "
+                + "(apartment_code, building_id, building, floor_number, area_m2, occupancy_type, status, notes) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sqlNoBid = "INSERT INTO apartments "
                 + "(apartment_code, building, floor_number, area_m2, occupancy_type, status, notes) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?)";
         try {
@@ -81,27 +153,63 @@ public class ApartmentDAO extends DBContext {
                 System.out.println("ApartmentDAO.insert error: connection is null");
                 return -1;
             }
-            statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-            statement.setString(1, apartment.getApartmentCode());
-            statement.setString(2, apartment.getBuilding());
-            statement.setInt(3, apartment.getFloorNumber());
-            statement.setBigDecimal(4, apartment.getAreaM2());
-            statement.setString(5, apartment.getOccupancyType());
-            statement.setString(6, apartment.getStatus());
-            if (apartment.getNotes() == null || apartment.getNotes().isEmpty()) {
-                statement.setString(7, null);
-            } else {
-                statement.setString(7, apartment.getNotes());
+            Integer buildingId = apartment.getBuildingId();
+            if (buildingId == null) {
+                buildingId = resolveBuildingId(connection, apartment.getBuilding());
             }
-            int affected = statement.executeUpdate();
-            if (affected > 0) {
-                resultSet = statement.getGeneratedKeys();
-                if (resultSet.next()) {
-                    return resultSet.getInt(1);
+            try {
+                statement = connection.prepareStatement(sqlWithBid, Statement.RETURN_GENERATED_KEYS);
+                statement.setString(1, apartment.getApartmentCode());
+                if (buildingId == null) {
+                    statement.setObject(2, null);
+                } else {
+                    statement.setInt(2, buildingId);
                 }
-                return 0;
+                statement.setString(3, apartment.getBuilding());
+                statement.setInt(4, apartment.getFloorNumber());
+                statement.setBigDecimal(5, apartment.getAreaM2());
+                statement.setString(6, apartment.getOccupancyType());
+                statement.setString(7, apartment.getStatus());
+                if (apartment.getNotes() == null || apartment.getNotes().isEmpty()) {
+                    statement.setString(8, null);
+                } else {
+                    statement.setString(8, apartment.getNotes());
+                }
+                int affected = statement.executeUpdate();
+                if (affected > 0) {
+                    resultSet = statement.getGeneratedKeys();
+                    if (resultSet.next()) {
+                        return resultSet.getInt(1);
+                    }
+                    return 0;
+                }
+                return -1;
+            } catch (SQLException exWithBid) {
+                // Fallback DB chưa có building_id
+                System.out.println("ApartmentDAO.insert with building_id failed, fallback: " + exWithBid.getMessage());
+                closeQuietly(statement, resultSet);
+                statement = connection.prepareStatement(sqlNoBid, Statement.RETURN_GENERATED_KEYS);
+                statement.setString(1, apartment.getApartmentCode());
+                statement.setString(2, apartment.getBuilding());
+                statement.setInt(3, apartment.getFloorNumber());
+                statement.setBigDecimal(4, apartment.getAreaM2());
+                statement.setString(5, apartment.getOccupancyType());
+                statement.setString(6, apartment.getStatus());
+                if (apartment.getNotes() == null || apartment.getNotes().isEmpty()) {
+                    statement.setString(7, null);
+                } else {
+                    statement.setString(7, apartment.getNotes());
+                }
+                int affected = statement.executeUpdate();
+                if (affected > 0) {
+                    resultSet = statement.getGeneratedKeys();
+                    if (resultSet.next()) {
+                        return resultSet.getInt(1);
+                    }
+                    return 0;
+                }
+                return -1;
             }
-            return -1;
         } catch (SQLException e) {
             System.out.println("ApartmentDAO.insert error: " + e.getMessage());
             return -1;
@@ -110,22 +218,66 @@ public class ApartmentDAO extends DBContext {
         }
     }
 
+    /** Map building string → buildings.building_id (exact code hoặc token 1 ký tự). */
+    private Integer resolveBuildingId(Connection conn, String building) {
+        if (conn == null || building == null || building.trim().isEmpty()) {
+            return null;
+        }
+        String code = building.trim();
+        String sql = "SELECT TOP 1 building_id FROM buildings WHERE building_code = ? "
+                + "OR building_code = LEFT(?, 1)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, code);
+            ps.setString(2, code);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            // bảng buildings chưa có — bỏ qua
+        }
+        return null;
+    }
+
+    private void closeQuietly(PreparedStatement ps, ResultSet rs) {
+        try {
+            if (rs != null) {
+                rs.close();
+            }
+        } catch (SQLException ignored) {
+        }
+        try {
+            if (ps != null) {
+                ps.close();
+            }
+        } catch (SQLException ignored) {
+        }
+        this.statement = null;
+        this.resultSet = null;
+    }
+
     public List<Apartment> findAll() {
         return findWithFilters(null, null, null, null, "building", "asc", 1, 1000);
     }
 
     /**
      * UC-APT-04: list có keyword + filter + sort + phân trang (SQL Server OFFSET/FETCH).
+     * Kèm member_count = số household_members is_active=1.
      */
     public List<Apartment> findWithFilters(String keyword, String building, String status,
             String occupancyType, String sort, String dir, int page, int pageSize) {
         List<Apartment> list = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT * FROM apartments WHERE 1=1");
+        StringBuilder sql = new StringBuilder(
+                "SELECT a.*, "
+                + "(SELECT COUNT(*) FROM household_members hm "
+                + " WHERE hm.apartment_id = a.apartment_id AND hm.is_active = 1) AS member_count "
+                + "FROM apartments a WHERE 1=1");
         List<Object> params = new ArrayList<>();
-        appendFilters(sql, params, keyword, building, status, occupancyType);
-        sql.append(" ORDER BY ").append(resolveSortColumn(sort)).append(" ")
+        appendFiltersPrefixed(sql, params, keyword, building, status, occupancyType, "a");
+        sql.append(" ORDER BY ").append(resolveSortColumnPrefixed(sort, "a")).append(" ")
                 .append(resolveSortDir(dir))
-                .append(", apartment_id ASC");
+                .append(", a.apartment_id ASC");
         sql.append(" OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
 
         try {
@@ -154,9 +306,9 @@ public class ApartmentDAO extends DBContext {
     }
 
     public int countWithFilters(String keyword, String building, String status, String occupancyType) {
-        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM apartments WHERE 1=1");
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM apartments a WHERE 1=1");
         List<Object> params = new ArrayList<>();
-        appendFilters(sql, params, keyword, building, status, occupancyType);
+        appendFiltersPrefixed(sql, params, keyword, building, status, occupancyType, "a");
         try {
             connection = getConnection();
             if (connection == null) {
@@ -181,47 +333,62 @@ public class ApartmentDAO extends DBContext {
 
     private void appendFilters(StringBuilder sql, List<Object> params,
             String keyword, String building, String status, String occupancyType) {
+        appendFiltersPrefixed(sql, params, keyword, building, status, occupancyType, null);
+    }
+
+    private void appendFiltersPrefixed(StringBuilder sql, List<Object> params,
+            String keyword, String building, String status, String occupancyType, String alias) {
+        String p = (alias == null || alias.isEmpty()) ? "" : alias + ".";
         if (keyword != null && !keyword.isEmpty()) {
-            sql.append(" AND (apartment_code LIKE ? OR building LIKE ? OR ISNULL(notes,'') LIKE ?)");
+            sql.append(" AND (").append(p).append("apartment_code LIKE ? OR ")
+                    .append(p).append("building LIKE ? OR ISNULL(")
+                    .append(p).append("notes,'') LIKE ?)");
             String like = "%" + keyword + "%";
             params.add(like);
             params.add(like);
             params.add(like);
         }
         if (building != null && !building.isEmpty()) {
-            sql.append(" AND building LIKE ?");
+            sql.append(" AND ").append(p).append("building LIKE ?");
             params.add("%" + building + "%");
         }
         if (status != null && !status.isEmpty()) {
-            sql.append(" AND status = ?");
+            sql.append(" AND ").append(p).append("status = ?");
             params.add(status);
         }
         if (occupancyType != null && !occupancyType.isEmpty()) {
-            sql.append(" AND occupancy_type = ?");
+            sql.append(" AND ").append(p).append("occupancy_type = ?");
             params.add(occupancyType);
         }
     }
 
     /** Whitelist sort column — chống SQL injection. */
     private String resolveSortColumn(String sort) {
+        return resolveSortColumnPrefixed(sort, null);
+    }
+
+    private String resolveSortColumnPrefixed(String sort, String alias) {
+        String p = (alias == null || alias.isEmpty()) ? "" : alias + ".";
         if (sort == null) {
-            return "building";
+            return p + "building";
         }
         switch (sort) {
             case "code":
-                return "apartment_code";
+                return p + "apartment_code";
             case "building":
-                return "building";
+                return p + "building";
             case "floor":
-                return "floor_number";
+                return p + "floor_number";
             case "area":
-                return "area_m2";
+                return p + "area_m2";
             case "occupancy":
-                return "occupancy_type";
+                return p + "occupancy_type";
             case "status":
-                return "status";
+                return p + "status";
+            case "members":
+                return "member_count";
             default:
-                return "building";
+                return p + "building";
         }
     }
 
@@ -249,7 +416,7 @@ public class ApartmentDAO extends DBContext {
 
     /**
      * Cập nhật căn hộ – không đổi apartment_code / building / floor_number (UC-APT-02).
-     * Định danh nghiệp vụ: [tòa] - [tầng] [mã căn].
+     * UI hiển thị tách: Mã căn | Tòa | Tầng.
      *
      * @return true nếu có ít nhất 1 dòng được cập nhật
      */
@@ -318,6 +485,332 @@ public class ApartmentDAO extends DBContext {
         } finally {
             closeResources();
         }
+    }
+
+    /**
+     * Đổi status + occupancy cùng lúc (activate / deactivate).
+     */
+    public boolean updateStatusAndOccupancy(int apartmentId, String status, String occupancyType) {
+        ensureOccupancyCheckConstraint();
+        String sql = "UPDATE apartments SET status = ?, occupancy_type = ?, "
+                + "updated_at = SYSUTCDATETIME() WHERE apartment_id = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, status);
+            statement.setString(2, occupancyType);
+            statement.setInt(3, apartmentId);
+            return statement.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.updateStatusAndOccupancy error: " + e.getMessage()
+                    + " id=" + apartmentId + " status=" + status + " occ=" + occupancyType);
+            return false;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /** Chỉ cập nhật occupancy_type (auto-sync). VACANT → xóa notes; INACTIVE giữ notes. */
+    public boolean updateOccupancy(int apartmentId, String occupancyType) {
+        ensureOccupancyCheckConstraint();
+        // VACANT = trống sẵn sàng: không giữ ghi chú demo / lý do ngừng
+        boolean clearNotes = "VACANT".equals(occupancyType);
+        String sql = clearNotes
+                ? "UPDATE apartments SET occupancy_type = ?, notes = NULL, updated_at = SYSUTCDATETIME() WHERE apartment_id = ?"
+                : "UPDATE apartments SET occupancy_type = ?, updated_at = SYSUTCDATETIME() WHERE apartment_id = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, occupancyType);
+            statement.setInt(2, apartmentId);
+            int n = statement.executeUpdate();
+            if (n <= 0) {
+                System.out.println("ApartmentDAO.updateOccupancy: 0 rows id=" + apartmentId
+                        + " occ=" + occupancyType);
+            }
+            return n > 0;
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.updateOccupancy error: " + e.getMessage()
+                    + " id=" + apartmentId + " occ=" + occupancyType);
+            return false;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /** Số thành viên hộ active trên căn. */
+    public int countActiveMembers(int apartmentId) {
+        String sql = "SELECT COUNT(*) FROM household_members WHERE apartment_id = ? AND is_active = 1";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return 0;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, apartmentId);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.countActiveMembers warning: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return 0;
+    }
+
+    public boolean hasCurrentOwner(int apartmentId) {
+        String sql = "SELECT 1 FROM apartment_residents "
+                + "WHERE apartment_id = ? AND is_current = 1 AND role_in_apartment = 'OWNER'";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, apartmentId);
+            resultSet = statement.executeQuery();
+            return resultSet.next();
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.hasCurrentOwner warning: " + e.getMessage());
+            return false;
+        } finally {
+            closeResources();
+        }
+    }
+
+    public boolean hasCurrentTenant(int apartmentId) {
+        String sql = "SELECT 1 FROM apartment_residents "
+                + "WHERE apartment_id = ? AND is_current = 1 "
+                + "AND role_in_apartment IN ('TENANT_REP', 'TENANT')";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, apartmentId);
+            resultSet = statement.executeQuery();
+            return resultSet.next();
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.hasCurrentTenant warning: " + e.getMessage());
+            return false;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /** Chỉ ensure CHECK 1 lần / JVM — tránh DROP/ADD mỗi request list. */
+    private static volatile boolean occupancyCheckReady = false;
+
+    /**
+     * Đảm bảo CHECK occupancy cho phép OWNED|RENTED|VACANT|N/A.
+     * Bảng cũ chỉ OWNED|RENTED → mọi UPDATE VACANT/N/A đều fail.
+     * Thứ tự: DROP → (caller UPDATE data) → ADD; method này chỉ DROP (và ADD nếu đã safe).
+     */
+    public boolean ensureOccupancyCheckConstraint() {
+        if (occupancyCheckReady) {
+            return true;
+        }
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            Statement st = connection.createStatement();
+            try {
+                // Drop CHECK cũ (OWNED|RENTED only) nếu còn
+                st.execute(
+                        "IF EXISTS (SELECT 1 FROM sys.check_constraints "
+                        + "WHERE name = N'CK_apartments_occupancy' "
+                        + "AND parent_object_id = OBJECT_ID(N'dbo.apartments')) "
+                        + "ALTER TABLE dbo.apartments DROP CONSTRAINT CK_apartments_occupancy");
+                // Thử gắn CHECK mới ngay; nếu fail (data lạ) reconcile sẽ UPDATE rồi gọi lại
+                try {
+                    st.execute(
+                            "ALTER TABLE dbo.apartments ADD CONSTRAINT CK_apartments_occupancy "
+                            + "CHECK (occupancy_type IN (N'OWNED', N'RENTED', N'VACANT', N'N/A'))");
+                    occupancyCheckReady = true;
+                    System.out.println("ApartmentDAO.ensureOccupancyCheckConstraint: OK");
+                    return true;
+                } catch (SQLException addEx) {
+                    // Có thể constraint đã tồn tại đúng, hoặc data chưa hợp lệ
+                    System.out.println("ApartmentDAO.ensureOccupancyCheckConstraint ADD: "
+                            + addEx.getMessage());
+                    // Vẫn cho UPDATE chạy khi đã DROP
+                    return true;
+                }
+            } finally {
+                st.close();
+            }
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.ensureOccupancyCheckConstraint: " + e.getMessage());
+            return false;
+        } finally {
+            closeResources();
+        }
+    }
+
+    private void reapplyOccupancyCheckIfMissing() {
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return;
+            }
+            Statement st = connection.createStatement();
+            try {
+                st.execute(
+                        "IF NOT EXISTS (SELECT 1 FROM sys.check_constraints "
+                        + "WHERE name = N'CK_apartments_occupancy' "
+                        + "AND parent_object_id = OBJECT_ID(N'dbo.apartments')) "
+                        + "ALTER TABLE dbo.apartments ADD CONSTRAINT CK_apartments_occupancy "
+                        + "CHECK (occupancy_type IN (N'OWNED', N'RENTED', N'VACANT', N'N/A'))");
+                occupancyCheckReady = true;
+            } finally {
+                st.close();
+            }
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.reapplyOccupancyCheckIfMissing: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+    }
+
+    /**
+     * Sửa hàng loạt occupancy (khi mở list):
+     * 1) INACTIVE → N/A
+     * 2) ACTIVE + TENANT/REP → RENTED
+     * 3) ACTIVE + OWNER only → OWNED
+     * 4) ACTIVE + TV hộ (không role) → OWNED
+     * 5) ACTIVE trống + occupancy lạ/N/A/null → VACANT
+     *    (KHÔNG ép OWNED/RENTED trống về VACANT — giữ loại hình lúc kích hoạt)
+     * 5b) VACANT còn notes → xóa notes
+     */
+    public int reconcileAllOccupancy() {
+        ensureOccupancyCheckConstraint();
+
+        int total = 0;
+        connection = getConnection();
+        if (connection == null) {
+            System.out.println("ApartmentDAO.reconcileAllOccupancy: connection null");
+            return 0;
+        }
+        try {
+            // 1) INACTIVE → N/A
+            total += runUpdateSafe(connection,
+                    "UPDATE apartments SET occupancy_type = N'N/A', updated_at = SYSUTCDATETIME() "
+                    + "WHERE status = N'INACTIVE' AND ISNULL(occupancy_type, N'') <> N'N/A'");
+
+            // 2) ACTIVE + tenant → RENTED (giữ OWNER nếu có)
+            total += runUpdateSafe(connection,
+                    "UPDATE a SET a.occupancy_type = N'RENTED', a.updated_at = SYSUTCDATETIME() "
+                    + "FROM apartments a "
+                    + "WHERE a.status = N'ACTIVE' "
+                    + "AND EXISTS (SELECT 1 FROM apartment_residents r "
+                    + "  WHERE r.apartment_id = a.apartment_id AND r.is_current = 1 "
+                    + "  AND r.role_in_apartment IN (N'TENANT_REP', N'TENANT')) "
+                    + "AND ISNULL(a.occupancy_type, N'') <> N'RENTED'");
+
+            // 3) ACTIVE + owner only (không tenant) → OWNED
+            total += runUpdateSafe(connection,
+                    "UPDATE a SET a.occupancy_type = N'OWNED', a.updated_at = SYSUTCDATETIME() "
+                    + "FROM apartments a "
+                    + "WHERE a.status = N'ACTIVE' "
+                    + "AND EXISTS (SELECT 1 FROM apartment_residents r "
+                    + "  WHERE r.apartment_id = a.apartment_id AND r.is_current = 1 "
+                    + "  AND r.role_in_apartment = N'OWNER') "
+                    + "AND NOT EXISTS (SELECT 1 FROM apartment_residents r "
+                    + "  WHERE r.apartment_id = a.apartment_id AND r.is_current = 1 "
+                    + "  AND r.role_in_apartment IN (N'TENANT_REP', N'TENANT')) "
+                    + "AND ISNULL(a.occupancy_type, N'') <> N'OWNED'");
+
+            // 4) ACTIVE + TV hộ, không role → OWNED
+            total += runUpdateSafe(connection,
+                    "UPDATE a SET a.occupancy_type = N'OWNED', a.updated_at = SYSUTCDATETIME() "
+                    + "FROM apartments a "
+                    + "WHERE a.status = N'ACTIVE' "
+                    + "AND NOT EXISTS (SELECT 1 FROM apartment_residents r "
+                    + "  WHERE r.apartment_id = a.apartment_id AND r.is_current = 1) "
+                    + "AND EXISTS (SELECT 1 FROM household_members hm "
+                    + "  WHERE hm.apartment_id = a.apartment_id AND hm.is_active = 1) "
+                    + "AND ISNULL(a.occupancy_type, N'') <> N'OWNED'");
+
+            // 5) ACTIVE trống + occupancy không hợp lệ (null / N/A / lạ) → VACANT
+            //    Giữ OWNED / RENTED / VACANT đã chọn lúc kích hoạt hoặc form Sửa.
+            total += runUpdateSafe(connection,
+                    "UPDATE a SET a.occupancy_type = N'VACANT', a.notes = NULL, a.updated_at = SYSUTCDATETIME() "
+                    + "FROM apartments a "
+                    + "WHERE a.status = N'ACTIVE' "
+                    + "AND NOT EXISTS (SELECT 1 FROM apartment_residents r "
+                    + "  WHERE r.apartment_id = a.apartment_id AND r.is_current = 1) "
+                    + "AND NOT EXISTS (SELECT 1 FROM household_members hm "
+                    + "  WHERE hm.apartment_id = a.apartment_id AND hm.is_active = 1) "
+                    + "AND ISNULL(a.occupancy_type, N'') NOT IN (N'VACANT', N'OWNED', N'RENTED')");
+
+            // 5b) Mọi VACANT còn notes → xóa (INACTIVE giữ notes)
+            total += runUpdateSafe(connection,
+                    "UPDATE apartments SET notes = NULL, updated_at = SYSUTCDATETIME() "
+                    + "WHERE occupancy_type = N'VACANT' AND notes IS NOT NULL");
+
+            System.out.println("ApartmentDAO.reconcileAllOccupancy: updated rows=" + total);
+        } finally {
+            closeResources();
+        }
+
+        reapplyOccupancyCheckIfMissing();
+        return total;
+    }
+
+    /** UPDATE từng bước — lỗi 1 bước không chặn bước sau. */
+    private int runUpdateSafe(Connection conn, String sql) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.runUpdateSafe error: " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Các unit (1..99) đã có mã đúng format {prefix}{UU} trên prefix tòa-tầng (vd. A-03).
+     */
+    public java.util.Set<Integer> findExistingUnitsByCodePrefix(String codePrefix) {
+        java.util.Set<Integer> units = new java.util.HashSet<>();
+        if (codePrefix == null || codePrefix.isEmpty()) {
+            return units;
+        }
+        String sql = "SELECT apartment_code FROM apartments WHERE apartment_code LIKE ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return units;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, codePrefix + "%");
+            resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                String code = resultSet.getString(1);
+                if (code == null || !code.startsWith(codePrefix)) {
+                    continue;
+                }
+                String unitPart = code.substring(codePrefix.length());
+                if (unitPart.length() == 2 && unitPart.chars().allMatch(Character::isDigit)) {
+                    units.add(Integer.parseInt(unitPart));
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("ApartmentDAO.findExistingUnitsByCodePrefix error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return units;
     }
 
     /**

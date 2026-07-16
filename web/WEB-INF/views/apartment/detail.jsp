@@ -5,7 +5,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
     <div>
         <h2 class="h4 mb-1">
-            Căn hộ <span class="text-primary">${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}</span>
+            Căn hộ <span class="text-primary"><c:out value="${apartment.apartmentCode}"/></span>
             <c:choose>
                 <c:when test="${apartment.status == 'ACTIVE'}">
                     <span class="badge text-bg-success align-middle">ACTIVE</span>
@@ -16,11 +16,14 @@
             </c:choose>
         </h2>
         <p class="text-muted small mb-0">
-            ${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}
+            Tòa <c:out value="${apartment.building}"/>
+            · Tầng ${apartment.floorNumber}
             ·
             <c:choose>
                 <c:when test="${apartment.occupancyType == 'OWNED'}">OWNED – Sở hữu</c:when>
-                <c:otherwise>RENTED – Thuê</c:otherwise>
+                <c:when test="${apartment.occupancyType == 'RENTED'}">RENTED – Thuê</c:when>
+                <c:when test="${apartment.occupancyType == 'VACANT'}">VACANT – Trống</c:when>
+                <c:otherwise>N/A – Chưa vận hành</c:otherwise>
             </c:choose>
         </p>
     </div>
@@ -37,7 +40,7 @@
             <c:choose>
                 <c:when test="${apartment.status == 'ACTIVE'}">
                     <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                          onsubmit="return confirm('Vô hiệu hóa căn ${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}?');">
+                          onsubmit="return confirm('Vô hiệu hóa căn ${apartment.apartmentCode}? (→ INACTIVE · N/A)');">
                         <input type="hidden" name="action" value="deactivate">
                         <input type="hidden" name="id" value="${apartment.apartmentId}">
                         <button type="submit" class="btn btn-sm btn-outline-warning">
@@ -46,16 +49,12 @@
                     </form>
                 </c:when>
                 <c:otherwise>
+                    <a class="btn btn-sm btn-outline-success"
+                       href="${pageContext.request.contextPath}/apartment?action=activate&amp;id=${apartment.apartmentId}">
+                        <i class="bi bi-play-circle"></i> Kích hoạt
+                    </a>
                     <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                          onsubmit="return confirm('Kích hoạt lại căn ${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}?');">
-                        <input type="hidden" name="action" value="activate">
-                        <input type="hidden" name="id" value="${apartment.apartmentId}">
-                        <button type="submit" class="btn btn-sm btn-outline-success">
-                            <i class="bi bi-play-circle"></i> Kích hoạt
-                        </button>
-                    </form>
-                    <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                          onsubmit="return confirm('XÓA VĨNH VIỄN căn ${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}?');">
+                          onsubmit="return confirm('XÓA VĨNH VIỄN căn ${apartment.apartmentCode}?');">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="${apartment.apartmentId}">
                         <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -75,17 +74,13 @@
     </div>
     <div class="card-body">
         <div class="row g-3">
-            <div class="col-md-4">
-                <div class="text-muted small">Định danh căn hộ</div>
-                <div class="fw-semibold">${apartment.building} - ${apartment.floorNumber} ${apartment.apartmentCode}</div>
-            </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <div class="text-muted small">Mã căn</div>
-                <div>${apartment.apartmentCode}</div>
+                <div class="fw-semibold"><c:out value="${apartment.apartmentCode}"/></div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <div class="text-muted small">Tòa nhà</div>
-                <div>${apartment.building}</div>
+                <div><c:out value="${apartment.building}"/></div>
             </div>
             <div class="col-md-2">
                 <div class="text-muted small">Tầng</div>
@@ -104,8 +99,14 @@
                         <c:when test="${apartment.occupancyType == 'OWNED'}">
                             <span class="badge text-bg-info">OWNED</span>
                         </c:when>
+                        <c:when test="${apartment.occupancyType == 'RENTED'}">
+                            <span class="badge text-bg-primary">RENTED</span>
+                        </c:when>
+                        <c:when test="${apartment.occupancyType == 'VACANT'}">
+                            <span class="badge text-bg-light border">VACANT</span>
+                        </c:when>
                         <c:otherwise>
-                            <span class="badge text-bg-secondary">RENTED</span>
+                            <span class="badge text-bg-secondary">N/A</span>
                         </c:otherwise>
                     </c:choose>
                 </div>
@@ -154,12 +155,22 @@
     </div>
 </div>
 
-<%-- ===== Chủ sở hữu + Người thuê ===== --%>
+<%-- ===== Chủ sở hữu + Người thuê =====
+     OWNED (chủ ở): chỉ hiện chủ — không mục người thuê
+     RENTED: chủ nhà (OWNER) + người thuê
+--%>
+<c:set var="isOwnedOnly" value="${apartment.occupancyType == 'OWNED'}" />
 <div class="row g-3 mb-3">
-    <div class="col-md-6">
+    <div class="${isOwnedOnly ? 'col-md-12' : 'col-md-6'}">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-person-badge me-1"></i> Chủ sở hữu</span>
+                <span>
+                    <i class="bi bi-person-badge me-1"></i>
+                    <c:choose>
+                        <c:when test="${apartment.occupancyType == 'RENTED'}">Chủ nhà (OWNER)</c:when>
+                        <c:otherwise>Chủ sở hữu</c:otherwise>
+                    </c:choose>
+                </span>
                 <c:if test="${canManage}">
                     <div class="d-flex flex-wrap gap-1">
                         <a class="btn btn-sm btn-outline-primary"
@@ -219,11 +230,13 @@
             </div>
         </div>
     </div>
+    <%-- OWNED: không hiển thị mục người thuê --%>
+    <c:if test="${!isOwnedOnly}">
     <div class="col-md-6">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-people me-1"></i> Người thuê</span>
-                <c:if test="${canManage}">
+                <c:if test="${canManage && apartment.status == 'ACTIVE'}">
                     <div class="d-flex flex-wrap gap-1">
                         <a class="btn btn-sm btn-outline-primary"
                            href="${pageContext.request.contextPath}/apartment?action=assign-tenant&amp;id=${apartment.apartmentId}">
@@ -249,7 +262,7 @@
                         <div class="text-muted small py-3 text-center">
                             <i class="bi bi-person-x d-block mb-1 fs-4"></i>
                             Chưa gán người thuê
-                            <c:if test="${canManage}">
+                            <c:if test="${canManage && apartment.status == 'ACTIVE'}">
                                 <div class="mt-2">
                                     <a href="${pageContext.request.contextPath}/apartment?action=assign-tenant&amp;id=${apartment.apartmentId}">
                                         Gán người thuê
@@ -296,6 +309,7 @@
             </div>
         </div>
     </div>
+    </c:if>
 </div>
 
 <%-- ===== Thành viên hộ ===== --%>
@@ -318,7 +332,7 @@
                 <thead class="table-light">
                 <tr>
                     <th>Họ tên</th>
-                    <th>Quan hệ</th>
+                    <th>Vai trò</th>
                     <th>SĐT</th>
                     <th>CCCD/CMND</th>
                     <th>Ngày sinh</th>

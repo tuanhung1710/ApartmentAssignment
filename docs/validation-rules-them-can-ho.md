@@ -46,20 +46,20 @@ User **không** nhập mã khi create. Server sinh sau khi validate tòa + tần
 | VR-CODE-01 | **Auto-generate** | `{TOKEN}-{FF}{UU}` · TOKEN từ tên tòa (A, Tòa B→B) · FF = tầng 2 số · UU = unit 2 số trên tầng | — |
 | VR-CODE-02 | **Bỏ qua input client** | `form.setApartmentCode(null)` rồi gán mã sinh | (im lặng) |
 | VR-CODE-03 | **Độ dài** | ≤ 20 (cột DB) | Không thể sinh mã căn hộ… |
-| VR-CODE-04 | **Unit tăng nếu trùng** | Thử unit từ count+1 → 99, lấy mã `existsByCode == false` đầu tiên | — |
+| VR-CODE-04 | **Unit tăng dần** | Unit = max unit cùng prefix `{TOKEN}-{FF}` + 1 (vd. đã có A-0201, A-0202 → A-0203); fallback count tòa+tầng; nếu trùng thì +1 đến 99 | — |
 | VR-DUP-01 | **Duplicate check** | Sau khi sinh: `existsByCode` phải false | Đã tồn tại căn hộ với mã {code} ({identity}). |
 
-### Format hiển thị định danh
+### Format hiển thị UI
 
-`[tên tòa] - [số tầng] [mã căn]` · ví dụ: **`A - 4 A-0401`**
+Tách **3 cột**: **Mã căn** · **Tòa** · **Tầng** (không gộp “Định danh”).
 
 ### Ví dụ sinh mã
 
-| Tòa nhập | Tầng | Unit | Mã sinh | Hiển thị |
+| Tòa nhập | Tầng | Unit | Mã sinh | Cột list |
 |----------|------|------|---------|----------|
-| `A` | 4 | 1 | `A-0401` | `A - 4 A-0401` |
-| `Tòa B` | 3 | 2 | `B-0302` | `Tòa B - 3 B-0302` |
-| `A` | 12 | 1 | `A-1201` | `A - 12 A-1201` |
+| `A` | 2 | 3 | `A-0203` | `A-0203` \| `A` \| `2` |
+| `Tòa B` | 3 | 2 | `B-0302` | `B-0302` \| `Tòa B` \| `3` |
+| `A` | 12 | 1 | `A-1201` | `A-1201` \| `A` \| `12` |
 | Trùng mã đã có | — | — | Fail VR-DUP-01 | Message tồn tại |
 
 ---

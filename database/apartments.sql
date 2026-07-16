@@ -2,9 +2,11 @@
 -- Chạy trên SQL Server database ApartmentManagement
 --
 -- Định danh nghiệp vụ:
---   Hiển thị: [tên tòa] - [số tầng] [mã căn]   vd. A - 4 A-0401
---   Mã lưu:   {TOKEN}-{FF}{UU}                 vd. A-0401
---   Create: server tự sinh mã; UNIQUE(apartment_code)
+--   UI list:  Mã căn | Tòa | Tầng  (tách cột, không gộp)
+--   Mã lưu:   {TOKEN}-{FF}{UU}                 vd. A-0203  (unit 01..06 / tầng)
+--   Create / init-floor: mặc định INACTIVE + N/A
+--   ACTIVE: OWNED | RENTED | VACANT ; INACTIVE: N/A
+--   Bảng đã có: chạy thêm migrate-apartment-occupancy-vacant-na.sql
 
 IF OBJECT_ID(N'dbo.apartments', N'U') IS NULL
 BEGIN
@@ -14,13 +16,13 @@ BEGIN
         building        NVARCHAR(50)  NOT NULL,
         floor_number    INT           NOT NULL,
         area_m2         DECIMAL(10,2) NOT NULL,
-        occupancy_type  NVARCHAR(20)  NOT NULL, -- OWNED | RENTED
-        status          NVARCHAR(20)  NOT NULL CONSTRAINT DF_apartments_status DEFAULT ('ACTIVE'), -- ACTIVE | INACTIVE
+        occupancy_type  NVARCHAR(20)  NOT NULL, -- OWNED | RENTED | VACANT | N/A
+        status          NVARCHAR(20)  NOT NULL CONSTRAINT DF_apartments_status DEFAULT ('INACTIVE'), -- ACTIVE | INACTIVE
         notes           NVARCHAR(500) NULL,
         created_at      DATETIME2     NOT NULL CONSTRAINT DF_apartments_created DEFAULT (SYSUTCDATETIME()),
         updated_at      DATETIME2     NOT NULL CONSTRAINT DF_apartments_updated DEFAULT (SYSUTCDATETIME()),
         CONSTRAINT UQ_apartments_code UNIQUE (apartment_code),
-        CONSTRAINT CK_apartments_occupancy CHECK (occupancy_type IN ('OWNED', 'RENTED')),
+        CONSTRAINT CK_apartments_occupancy CHECK (occupancy_type IN ('OWNED', 'RENTED', 'VACANT', 'N/A')),
         CONSTRAINT CK_apartments_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
         CONSTRAINT CK_apartments_floor CHECK (floor_number >= 0 AND floor_number <= 200),
         CONSTRAINT CK_apartments_area CHECK (area_m2 >= 15 AND area_m2 <= 10000)

@@ -21,8 +21,8 @@
 ### Giá trị nghiệp vụ
 - Sửa sai sót diện tích / loại hình / ghi chú khi nhập liệu ban đầu.
 - Cập nhật trạng thái ACTIVE/INACTIVE khi căn ngừng sử dụng tạm thời.
-- Không làm hỏng liên kết theo `apartment_id` và **định danh căn**  
-  format **`[tên tòa] - [số tầng] [mã căn]`** (code + building + floor **không đổi** sau khi tạo).
+- Không làm hỏng liên kết theo `apartment_id` và **mã căn / tòa / tầng**  
+  (3 cột tách trên UI; code + building + floor **không đổi** sau khi tạo).
 
 ---
 
@@ -43,10 +43,10 @@
 | 1 | Mở **Danh sách căn hộ** | `GET /apartment?action=list` |
 | 2 | Bấm **Sửa** trên một dòng | `GET /apartment?action=edit&id={id}` |
 | 3 | — | Kiểm tra login + role; `findById`; load form có data |
-| 4 | Xem định danh **`[tòa] - [tầng] [mã]`** (chỉ đọc); sửa diện tích / loại / status / notes | Form edit |
+| 4 | Xem **Mã căn · Tòa · Tầng** (readonly tách riêng); sửa diện tích / loại / status / notes | Form edit |
 | 5 | Bấm **Lưu** | `POST action=update` + `apartmentId` |
 | 6 | — | Validate field; `update` DB; set `updated_at` |
-| 7 | — | Flash *Cập nhật căn hộ thành công.* |
+| 7 | — | Flash *Cập nhật căn hộ {mã} thành công.* |
 | 8 | — | Redirect về list |
 | 9 | Thấy flash + dữ liệu đã đổi trên list | — |
 

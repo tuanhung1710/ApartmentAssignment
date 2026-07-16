@@ -31,11 +31,11 @@
 | ID | Rule |
 |----|------|
 | **BR-U01** | Chỉ ADMIN/MANAGER được Update / Remove. |
-| **BR-U02** | **Update:** sửa fullName, relationship, phone, CCCD, DOB; không đổi `apartment_id`. |
+| **BR-U02** | **Update:** sửa fullName, **vai trò** (`relationship`: chỉ `Chủ hộ` \| `Thành viên`), phone, CCCD, DOB; không đổi `apartment_id`. |
 | **BR-U03** | **Remove = Hard Delete:** `DELETE` row `household_members` (feedback UI: biến mất khỏi list). |
 | **BR-U04** | Detail chỉ list TV **active** / còn tồn tại — sau Xóa không còn tên. |
 | **BR-U05** | Nếu TV xóa **là chủ sở hữu** (quan hệ `Chủ hộ` hoặc trùng tên owner hiện tại) → gỡ luôn OWNER (`deleteCurrentOwners`). TV khác → chỉ xóa household. |
-| **BR-U06** | Validate update giống UC-08 (tên, quan hệ, CCCD, phone, DOB). |
+| **BR-U06** | Validate update giống UC-08 (tên, vai trò Chủ hộ/Thành viên, CCCD, phone, DOB). |
 | **BR-U07** | CCCD trùng: chặn nếu trùng member **active khác** trên cùng căn (trừ chính mình). |
 | **BR-U08** | Không cho update/remove member của căn khác (check apartment_id). |
 | **BR-U09** | Member không tồn tại → “Không tìm thấy thành viên.” |
@@ -60,7 +60,7 @@
 | memberId | required, tồn tại | Không tìm thấy thành viên |
 | apartmentId | khớp member | Thành viên không thuộc căn này |
 | fullName | 2–100 | như UC-08 |
-| relationship | required ≤50 | như UC-08 |
+| relationship (UI: Vai trò) | required, enum `Chủ hộ` \| `Thành viên` | như UC-08 |
 | idNumber | optional 9–12 số; unique active except self | CCCD… |
 | phone | optional format | … |
 | dateOfBirth | optional ≤ today | … |
@@ -106,7 +106,7 @@ Payload note: tên TV, memberId, field tóm tắt.
 
 | # | Tiêu chí |
 |---|----------|
-| AC-01 | Sửa họ tên/quan hệ/CCCD/phone/DOB thành công |
+| AC-01 | Sửa họ tên/vai trò (Chủ hộ\|Thành viên)/CCCD/phone/DOB thành công |
 | AC-02 | Validate fail giữ form + errors |
 | AC-03 | CCCD trùng TV active khác → chặn |
 | AC-04 | Gỡ → is_active=0, badge Off, row còn |

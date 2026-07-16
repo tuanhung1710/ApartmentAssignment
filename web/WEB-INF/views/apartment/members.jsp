@@ -12,7 +12,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
         <h2 class="h4 mb-1">Danh sách thành viên</h2>
-        <p class="text-muted small mb-0">Search · Filter quan hệ/status · Pagination · Export Excel</p>
+        <p class="text-muted small mb-0">Search · Filter vai trò/status · Pagination · Export Excel</p>
     </div>
     <div class="d-flex gap-2">
         <c:if test="${canManage}">
@@ -44,7 +44,7 @@
                        value="${keyword}" placeholder="Tên, SĐT, CCCD, mã căn...">
             </div>
             <div class="col-md-2">
-                <label class="form-label small mb-1">Quan hệ</label>
+                <label class="form-label small mb-1">Vai trò</label>
                 <select class="form-select form-select-sm" name="relationship">
                     <option value="" ${empty relationshipFilter ? 'selected' : ''}>Tất cả</option>
                     <c:forEach var="rel" items="${relationshipOptions}">
@@ -92,11 +92,13 @@
                 <tr>
                     <th>#</th>
                     <th>Họ tên</th>
-                    <th>Quan hệ</th>
+                    <th>Vai trò</th>
                     <th>CCCD</th>
                     <th>SĐT</th>
                     <th>Ngày sinh</th>
-                    <th>Định danh căn<br/><span class="small fw-normal text-muted">[tòa] - [tầng] [mã]</span></th>
+                    <th>Mã căn</th>
+                    <th>Tòa</th>
+                    <th>Tầng</th>
                     <th>Status</th>
                     <c:if test="${canManage}"><th>Thao tác</th></c:if>
                 </tr>
@@ -105,7 +107,7 @@
                 <c:choose>
                     <c:when test="${empty members}">
                         <tr>
-                            <td colspan="${canManage ? 9 : 8}" class="text-center text-muted py-5">
+                            <td colspan="${canManage ? 11 : 10}" class="text-center text-muted py-5">
                                 <i class="bi bi-inbox display-6 d-block mb-2"></i>
                                 <c:choose>
                                     <c:when test="${hasFilter}">
@@ -135,11 +137,13 @@
                                         <c:otherwise>${m.dateOfBirth}</c:otherwise>
                                     </c:choose>
                                 </td>
-                                <td>
+                                <td class="fw-semibold">
                                     <a href="${pageContext.request.contextPath}/apartment?action=detail&amp;id=${m.apartmentId}">
-                                        <c:out value="${m.building}"/> - <c:out value="${m.floorNumber}"/> <c:out value="${m.apartmentCode}"/>
+                                        <c:out value="${m.apartmentCode}"/>
                                     </a>
                                 </td>
+                                <td><c:out value="${m.building}"/></td>
+                                <td>${m.floorNumber}</td>
                                 <td>
                                     <c:choose>
                                         <c:when test="${m.isActive}">

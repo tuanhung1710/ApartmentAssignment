@@ -1,7 +1,7 @@
 package apartmentmanagement.util;
 
 /**
- * Hằng số dùng chung toàn hệ thống.
+ * Hằng số dùng chung toàn hệ thống (TV1 platform + TV2 apartment).
  */
 public final class AppConstants {
 
@@ -10,6 +10,10 @@ public final class AppConstants {
 
     /** Session key lưu user đã đăng nhập */
     public static final String SESSION_USER = "currentUser";
+
+    /** Forgot-password OTP (session) — TV1 */
+    public static final String SESSION_FORGOT_OTP = "forgotOtpPayload";
+    public static final String SESSION_FORGOT_OTP_LOCK = "forgotOtpLockUntil";
 
     /** Flash message keys (session) */
     public static final String FLASH_SUCCESS = "flashSuccess";
@@ -43,13 +47,24 @@ public final class AppConstants {
     public static final String FEE_PAID = "PAID";
     public static final String FEE_UNPAID = "UNPAID";
 
-    /** Apartment occupancy type */
+    /** Building / apartment lifecycle (BuildingController dùng STATUS_*) */
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String STATUS_INACTIVE = "INACTIVE";
+
+    /** Apartment status aliases (TV2) */
+    public static final String APT_STATUS_ACTIVE = STATUS_ACTIVE;
+    public static final String APT_STATUS_INACTIVE = STATUS_INACTIVE;
+
+    /** Apartment occupancy type (TV2) */
     public static final String OCCUPANCY_OWNED = "OWNED";
     public static final String OCCUPANCY_RENTED = "RENTED";
+    /** ACTIVE + trống (chưa có người ở) */
+    public static final String OCCUPANCY_VACANT = "VACANT";
+    /** INACTIVE — chưa vận hành / không áp dụng loại hình */
+    public static final String OCCUPANCY_NA = "N/A";
 
-    /** Apartment status */
-    public static final String APT_STATUS_ACTIVE = "ACTIVE";
-    public static final String APT_STATUS_INACTIVE = "INACTIVE";
+    /** Số căn mặc định tối đa mỗi tầng (unit 01..06) */
+    public static final int UNITS_PER_FLOOR = 6;
 
     /** Role trong căn (apartment_residents.role_in_apartment) */
     public static final String APT_ROLE_OWNER = "OWNER";

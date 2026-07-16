@@ -2,19 +2,31 @@
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 
 <c:set var="isEdit" value="${formMode == 'edit'}" />
+<c:set var="isActive" value="${form.status == 'ACTIVE'}" />
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h2 class="h4 mb-1">
             <c:choose>
                 <c:when test="${isEdit}">Cập nhật căn hộ</c:when>
-                <c:otherwise>Thêm căn hộ</c:otherwise>
+                <c:otherwise>Thêm căn hộ (lẻ)</c:otherwise>
             </c:choose>
         </h2>
         <p class="text-muted small mb-0">
             <c:choose>
-                <c:when test="${isEdit}">Chỉnh sửa thông tin căn hộ (mã căn / tòa / tầng không đổi)</c:when>
-                <c:otherwise>Nhập tòa nhà + tầng — hệ thống tự sinh mã căn theo format [tòa] - [tầng] [mã]</c:otherwise>
+                <c:when test="${isEdit}">
+                    Mã / tòa / tầng không đổi ·
+                    <c:choose>
+                        <c:when test="${isActive}">ACTIVE: sửa được loại hình OWNED/RENTED/VACANT</c:when>
+                        <c:otherwise>INACTIVE: loại hình khóa N/A — dùng Kích hoạt để đổi</c:otherwise>
+                    </c:choose>
+                </c:when>
+                <c:otherwise>
+                    Mặc định <span class="badge text-bg-warning">INACTIVE</span>
+                    <span class="badge text-bg-secondary">N/A</span>
+                    · tối đa 6 căn / tầng · hoặc dùng
+                    <a href="${pageContext.request.contextPath}/apartment?action=init-floor">Khởi tạo tầng</a>
+                </c:otherwise>
             </c:choose>
         </p>
     </div>
@@ -46,14 +58,20 @@
             <div class="row g-3">
                 <c:choose>
                     <c:when test="${isEdit}">
-                        <%-- Định danh đồng bộ: [tòa] - [tầng] [mã] — không sửa --%>
-                        <div class="col-md-8">
-                            <label class="form-label">Định danh căn hộ</label>
+                        <div class="col-md-3">
+                            <label class="form-label">Mã căn</label>
                             <input type="text" class="form-control bg-light" readonly
-                                   value="${form.building} - ${form.floorNumber} ${form.apartmentCode}">
-                            <div class="form-text">
-                                Format: [tên tòa] - [số tầng] [mã căn] · không thể thay đổi sau khi tạo
-                            </div>
+                                   value="${form.apartmentCode}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Tòa nhà</label>
+                            <input type="text" class="form-control bg-light" readonly
+                                   value="${form.building}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tầng</label>
+                            <input type="text" class="form-control bg-light" readonly
+                                   value="${form.floorNumber}">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label" for="areaM2">
@@ -64,9 +82,41 @@
                                    min="15" max="10000" step="0.01" required
                                    placeholder="VD: 75.50">
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Trạng thái</label>
+                            <input type="text" class="form-control bg-light" readonly value="${form.status}">
+                            <div class="form-text">Đổi status bằng Kích hoạt / Vô hiệu</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="occupancyType">
+                                Loại hình <span class="text-danger">*</span>
+                            </label>
+                            <c:choose>
+                                <c:when test="${form.status == 'ACTIVE'}">
+                                    <select class="form-select" id="occupancyType" name="occupancyType" required>
+                                        <option value="VACANT" ${form.occupancyType == 'VACANT' ? 'selected' : ''}>
+                                            VACANT – Sẵn sàng, chưa có người ở
+                                        </option>
+                                        <option value="OWNED" ${form.occupancyType == 'OWNED' ? 'selected' : ''}>
+                                            OWNED – Sở hữu
+                                        </option>
+                                        <option value="RENTED" ${form.occupancyType == 'RENTED' ? 'selected' : ''}>
+                                            RENTED – Thuê
+                                        </option>
+                                    </select>
+                                    <div class="form-text">
+                                        Chọn đúng loại hình hiển thị. Có owner/tenant thực tế hệ thống sẽ nâng lên OWNED/RENTED.
+                                    </div>
+                                </c:when>
+                                <c:otherwise>
+                                    <input type="text" class="form-control bg-light" readonly value="N/A">
+                                    <input type="hidden" name="occupancyType" value="N/A">
+                                    <div class="form-text">INACTIVE luôn N/A — dùng Kích hoạt để chọn loại hình.</div>
+                                </c:otherwise>
+                            </c:choose>
+                        </div>
                     </c:when>
                     <c:otherwise>
-                        <%-- Create: chỉ nhập tòa + tầng; mã căn tự sinh server-side --%>
                         <div class="col-md-4">
                             <label class="form-label" for="building">
                                 Tòa nhà <span class="text-danger">*</span>
@@ -75,7 +125,7 @@
                                    value="${form.building}"
                                    maxlength="50" required
                                    placeholder="VD: A hoặc Tòa A">
-                            <div class="form-text">Dùng để sinh mã căn (vd: A → A-0401)</div>
+                            <div class="form-text">Sinh mã (vd: A → A-0203) · tối đa 6 unit/tầng</div>
                         </div>
 
                         <div class="col-md-4">
@@ -98,36 +148,25 @@
                                    placeholder="VD: 75.50">
                         </div>
 
+                        <div class="col-md-4">
+                            <label class="form-label">Trạng thái</label>
+                            <input type="text" class="form-control bg-light" readonly value="INACTIVE">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Loại hình</label>
+                            <input type="text" class="form-control bg-light" readonly value="N/A">
+                        </div>
+
                         <div class="col-12">
                             <div class="alert alert-light border small mb-0">
                                 <i class="bi bi-info-circle me-1"></i>
-                                <strong>Mã căn tự động:</strong>
-                                hệ thống sinh theo format
-                                <code>[tên tòa] - [số tầng] [mã căn]</code>
-                                (vd: tòa <strong>A</strong>, tầng <strong>4</strong> →
-                                <code>A - 4 A-0401</code>). Không cho thêm nếu mã đã tồn tại.
+                                Căn mới luôn <strong>INACTIVE · N/A</strong>.
+                                Muốn đưa vào hoạt động: bấm <strong>Kích hoạt</strong> và chọn OWNED / RENTED / VACANT.
+                                Tầng đầy 6 căn → dùng <a href="${pageContext.request.contextPath}/apartment?action=init-floor">Khởi tạo tầng</a> cho tầng khác.
                             </div>
                         </div>
                     </c:otherwise>
                 </c:choose>
-
-                <div class="col-md-4">
-                    <label class="form-label" for="occupancyType">
-                        Loại hình <span class="text-danger">*</span>
-                    </label>
-                    <select class="form-select" id="occupancyType" name="occupancyType" required>
-                        <option value="OWNED" ${form.occupancyType == 'OWNED' ? 'selected' : ''}>OWNED – Sở hữu</option>
-                        <option value="RENTED" ${form.occupancyType == 'RENTED' ? 'selected' : ''}>RENTED – Thuê</option>
-                    </select>
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label" for="status">Trạng thái</label>
-                    <select class="form-select" id="status" name="status">
-                        <option value="ACTIVE" ${empty form.status || form.status == 'ACTIVE' ? 'selected' : ''}>ACTIVE – Đang hoạt động</option>
-                        <option value="INACTIVE" ${form.status == 'INACTIVE' ? 'selected' : ''}>INACTIVE – Ngừng</option>
-                    </select>
-                </div>
 
                 <div class="col-12">
                     <label class="form-label" for="notes">Ghi chú</label>

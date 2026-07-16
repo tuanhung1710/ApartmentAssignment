@@ -10,13 +10,19 @@ Tổng hợp rule từ UC-APT-01 … 10 + Permission Matrix.
 | ID | Rule |
 |----|------|
 | BR-A01 | `apartment_code` **unique** toàn hệ thống. |
-| BR-A02 | Định danh căn **không đổi** sau khi tạo: `apartment_code` + `building` + `floor_number`. Format hiển thị: **`[tên tòa] - [số tầng] [mã căn]`** (vd. `A - 4 A-0401`). |
-| BR-A02b | **Create**: user chỉ nhập tòa + tầng; hệ thống **tự sinh** mã `{TOKEN}-{FF}{UU}` (vd. `A-0401`). Trùng mã → không insert + thông báo đã tồn tại. |
-| BR-A03 | `occupancy_type` ∈ {OWNED, RENTED}. |
-| BR-A04 | `status` ∈ {ACTIVE, INACTIVE}; mặc định tạo = **ACTIVE**. |
-| BR-A05 | `floor_number` ∈ [0, 200]; `area_m2` ∈ [15, 10000]. |
-| BR-A06 | Chỉ ADMIN/MANAGER tạo / sửa / đổi status / xóa. |
-| BR-A07 | Gán owner/tenant **không** tự đổi `occupancy_type`. |
+| BR-A02 | Mã căn / tòa / tầng **không đổi** sau khi tạo. UI **tách 3 cột**: Mã căn · Tòa · Tầng. |
+| BR-A02b | **Create lẻ / init-floor**: mặc định **INACTIVE + N/A**; mã `{TOKEN}-{FF}{UU}` unit **01–06** / tầng. Tầng đủ 6 → chặn thêm. |
+| BR-A02c | **Init-floor**: tạo các unit còn thiếu 01–06 trên tòa+tầng (bỏ qua unit đã có). |
+| BR-A03 | `occupancy_type` ∈ {OWNED, RENTED, **VACANT**, **N/A**}. |
+| BR-A03b | **INACTIVE** ⇔ occupancy **N/A** only. **ACTIVE** ⇔ OWNED \| RENTED \| VACANT (không N/A). |
+| BR-A03c | **VACANT** = ACTIVE, sẵn sàng, **chưa có cư dân/role**. **N/A** = chưa vận hành (INACTIVE). |
+| BR-A03d | **Auto-sync**: INACTIVE→N/A; ACTIVE+tenant→**RENTED**; ACTIVE+OWNER only→**OWNED**; ACTIVE+TV (no role)→OWNED. **ACTIVE trống**: giữ VACANT/OWNED/RENTED đã chọn lúc kích hoạt/sửa — **không** ép về VACANT. Chỉ gỡ owner/tenant/TV mới force VACANT nếu trống. |
+| BR-A03e | **OWNED (chủ ở)**: chỉ OWNER, **không** mục/gán người thuê. UI ẩn card thuê. |
+| BR-A03f | **RENTED (cho thuê)**: OWNER = chủ nhà (có thể có) + TENANT/REP. Gán tenant **không** gỡ owner. |
+| BR-A04 | `status` ∈ {ACTIVE, INACTIVE}; mặc định tạo = **INACTIVE**. |
+| BR-A05 | `floor_number` ∈ [0, 200]; `area_m2` ∈ [15, 10000]; **UNITS_PER_FLOOR = 6**. |
+| BR-A06 | Chỉ ADMIN/MANAGER tạo / sửa / đổi status / xóa / init-floor. |
+| BR-A07 | Gán owner/tenant chỉ căn **ACTIVE**; không tự đổi occupancy (MVP). |
 
 ---
 
@@ -24,11 +30,13 @@ Tổng hợp rule từ UC-APT-01 … 10 + Permission Matrix.
 
 | ID | Rule |
 |----|------|
-| BR-S01 | **ACTIVE** = đang vận hành. |
-| BR-S02 | **INACTIVE** = vô hiệu hóa (soft), vẫn còn row + lịch sử. |
-| BR-S03 | ACTIVE → INACTIVE: thao tác **deactivate**. |
-| BR-S04 | INACTIVE → ACTIVE: **activate**. |
+| BR-S01 | **ACTIVE** = đang vận hành (occupancy OWNED/RENTED/VACANT). |
+| BR-S02 | **INACTIVE** = chưa/vô hiệu (soft); occupancy **force N/A**. |
+| BR-S03 | ACTIVE → INACTIVE: **deactivate** → status INACTIVE + occupancy N/A. |
+| BR-S04 | INACTIVE → ACTIVE: **activate form** bắt buộc chọn OWNED/RENTED/VACANT — **lưu đúng** loại hình đã chọn (không re-sync ghi đè ngay). |
+| BR-S04b | Activate chọn **OWNED/RENTED** dù chưa gán cư dân → detail/list hiển thị đúng OWNED/RENTED; gán cư dân sau mới khớp auto-sync. |
 | BR-S05 | Hard **delete** chỉ khi INACTIVE (+ không cư dân current). |
+| BR-S06 | Update form **không** đổi status; lifecycle chỉ qua activate/deactivate. ACTIVE: form Sửa **cho chọn** VACANT/OWNED/RENTED. |
 
 ---
 
@@ -77,13 +85,13 @@ Tổng hợp rule từ UC-APT-01 … 10 + Permission Matrix.
 | ID | Rule |
 |----|------|
 | BR-R01 | Thành viên thuộc `household_members` (nhân khẩu), **không** bắt buộc là user login. |
-| BR-R02 | fullName + relationship bắt buộc. |
+| BR-R02 | fullName + **vai trò** bắt buộc; vai trò chỉ `Chủ hộ` \| `Thành viên` (cột DB `relationship`, không dùng quan hệ gia đình). |
 | BR-R03 | CCCD optional; format 9–12 số; unique active / căn. |
 | BR-R04 | Phone optional; format 9–11 số. |
 | BR-R05 | DOB optional; không future. |
 | BR-R06 | Thêm: `is_active = 1`. |
 | BR-R07 | **Remove TV = hard delete** row `household_members` (UI biến mất). |
-| BR-R08 | Xóa TV **là chủ sở hữu** (quan hệ `Chủ hộ` hoặc trùng tên owner) → **gỡ luôn OWNER**. |
+| BR-R08 | Xóa TV **là chủ sở hữu** (vai trò `Chủ hộ` hoặc trùng tên owner) → **gỡ luôn OWNER**. |
 | BR-R09 | Gán owner sync 1 dòng TV **Chủ hộ**; xóa dòng Chủ hộ = gỡ owner tương ứng. |
 | BR-R08 | Update không đổi `apartment_id`. |
 | BR-R09 | Chỉ ADMIN/MANAGER add/edit/remove. |
@@ -125,7 +133,7 @@ Tổng hợp rule từ UC-APT-01 … 10 + Permission Matrix.
 | Apartment | occupancy/status | enum |
 | Owner/Tenant | userId | active user |
 | Tenant | start/end | end ≥ start |
-| Member | name/relationship | required |
+| Member | name + vai trò | required; vai trò ∈ {Chủ hộ, Thành viên} |
 | Member | CCCD/phone/DOB | format + biên |
 | Common | id params | parse >0, đúng quan hệ căn |
 
