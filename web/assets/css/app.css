@@ -164,6 +164,13 @@ body {
     gap: 0.5rem;
 }
 
+/* Bootstrap không có w-sm-auto sẵn — toolbar mobile full width */
+@media (min-width: 576px) {
+    .w-sm-auto {
+        width: auto !important;
+    }
+}
+
 /* ---------- Breakpoints ---------- */
 
 /* ≥ sm (576): padding thoáng hơn */
