@@ -4,23 +4,16 @@ import apartmentmanagement.dal.DBContext;
 import apartmentmanagement.util.AppConstants;
 import java.sql.SQLException;
 
-/**
- * Số liệu dashboard shell (TV1 – UC-COM-04).
- * <p>
- * KHÔNG thay thế DAO nghiệp vụ của TV2–TV5.
- * Khi module xong, TV2/3/4/5 có thể chuyển count sang DAO module mình
- * và DashboardController gọi method của họ.
- * </p>
- */
+
 public class DashboardStatsDAO extends DBContext {
 
-    // ---------- Admin ----------
+    
 
     public int countApartments() {
         return safeCount("SELECT COUNT(*) FROM apartments", null);
     }
 
-    // ---------- Manager ----------
+    
 
     public int countRequestsByStatus(String status) {
         return safeCount("SELECT COUNT(*) FROM requests WHERE status = ?", status);
@@ -30,7 +23,7 @@ public class DashboardStatsDAO extends DBContext {
         return safeCount("SELECT COUNT(*) FROM monthly_fees WHERE status = ?", AppConstants.FEE_DRAFT);
     }
 
-    // ---------- Staff ----------
+    
 
     public int countAssignedToStaff(int staffUserId) {
         return safeCountIntString(
@@ -51,11 +44,7 @@ public class DashboardStatsDAO extends DBContext {
         return safeCountIntString(sql, staffUserId, AppConstants.STATUS_COMPLETED);
     }
 
-    // ---------- Resident ----------
-
-    /**
-     * Mã căn hộ hiện tại. TODO: TV2 nối logic đầy đủ.
-     */
+    
     public String findCurrentApartmentCodeByUserId(int userId) {
         String sql = "SELECT TOP 1 a.apartment_code "
                 + "FROM apartments a "
@@ -81,9 +70,7 @@ public class DashboardStatsDAO extends DBContext {
         return null;
     }
 
-    /**
-     * Tóm tắt phí gần nhất. TODO: TV3 nối logic đầy đủ.
-     */
+    
     public String findLatestFeeSummaryForUser(int userId) {
         String sql = "SELECT TOP 1 mf.fee_month, mf.fee_year, mf.total_amount, mf.status "
                 + "FROM monthly_fees mf "
@@ -139,9 +126,7 @@ public class DashboardStatsDAO extends DBContext {
         return 0;
     }
 
-    /**
-     * Thông báo đã publish (30 ngày). TODO: TV5 nối CRUD announcements.
-     */
+    
     public int countRecentAnnouncements() {
         String sql = "SELECT COUNT(*) FROM announcements "
                 + "WHERE is_published = 1 "
@@ -149,7 +134,7 @@ public class DashboardStatsDAO extends DBContext {
         return safeCount(sql, null);
     }
 
-    // ---------- helpers (lỗi SQL / mất DB → 0, không 500) ----------
+    
 
     private int safeCount(String sql, String stringParam) {
         try {
