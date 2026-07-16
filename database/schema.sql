@@ -50,18 +50,55 @@ CREATE INDEX IX_users_is_active ON users(is_active);
 GO
 
 /*--------------------------------------------------------------------------------
-  2. APARTMENTS - căn hộ
-  occupancy_type: OWNED (chủ ở) | RENTED (cho thuê)
+  2. BUILDINGS - tòa nhà (master data cho TV2–TV5: căn hộ / cư dân / phí theo tòa)
+  status: ACTIVE | INACTIVE (soft-delete)
+--------------------------------------------------------------------------------*/
+CREATE TABLE buildings (
+    building_id     INT IDENTITY(1,1) PRIMARY KEY,
+    building_code   NVARCHAR(20)  NOT NULL UNIQUE,   -- VD: A, B, C
+    building_name   NVARCHAR(100) NOT NULL,          -- VD: Tòa A – Sky View
+    address         NVARCHAR(300) NULL,
+    total_floors    INT           NULL
+                    CONSTRAINT CK_buildings_floors
+                    CHECK (total_floors IS NULL OR total_floors BETWEEN 1 AND 200),
+    description     NVARCHAR(1000) NULL,
+    status          NVARCHAR(20)  NOT NULL
+                    CONSTRAINT DF_buildings_status DEFAULT (N'ACTIVE')
+                    CONSTRAINT CK_buildings_status
+                    CHECK (status IN (N'ACTIVE', N'INACTIVE')),
+    created_at      DATETIME2     NOT NULL
+                    CONSTRAINT DF_buildings_created_at DEFAULT (SYSUTCDATETIME()),
+    updated_at      DATETIME2     NULL
+);
+GO
+
+CREATE INDEX IX_buildings_status ON buildings(status);
+CREATE INDEX IX_buildings_code ON buildings(building_code);
+GO
+
+/*--------------------------------------------------------------------------------
+  3. APARTMENTS - căn hộ
+  status: ACTIVE | INACTIVE
+  occupancy_type (chỉ meaningful khi ACTIVE):
+    OWNED  – có chủ sở hữu (chủ ở)
+    RENTED – cho thuê (chủ hộ + người thuê)
+    VACANT – ACTIVE nhưng chưa có ai chuyển vào, sẵn sàng vận hành
+  Khi status = INACTIVE → UI hiển thị loại hình là N/A (giá trị DB có thể giữ nguyên).
+  building_id: FK tòa (chuẩn cho filter theo tòa)
+  building: mã tòa denormalized (A/B/…) — đồng bộ building_code
 --------------------------------------------------------------------------------*/
 CREATE TABLE apartments (
     apartment_id    INT IDENTITY(1,1) PRIMARY KEY,
     apartment_code  NVARCHAR(20)  NOT NULL UNIQUE,   -- VD: A-1201
-    building        NVARCHAR(50)  NULL,              -- MVP 1 tòa: có thể NULL / 'A'
+    building_id     INT           NULL
+                    CONSTRAINT FK_apartments_building
+                    REFERENCES buildings(building_id),
+    building        NVARCHAR(50)  NULL,              -- mã tòa (đồng bộ building_code)
     floor_number    INT           NULL,
     area_m2         DECIMAL(8,2)  NULL,
     occupancy_type  NVARCHAR(20)  NOT NULL
                     CONSTRAINT CK_apartments_occupancy
-                    CHECK (occupancy_type IN (N'OWNED', N'RENTED')),
+                    CHECK (occupancy_type IN (N'OWNED', N'RENTED', N'VACANT')),
     status          NVARCHAR(20)  NOT NULL
                     CONSTRAINT DF_apartments_status DEFAULT (N'ACTIVE')
                     CONSTRAINT CK_apartments_status
@@ -74,11 +111,13 @@ CREATE TABLE apartments (
 GO
 
 CREATE INDEX IX_apartments_status ON apartments(status);
+CREATE INDEX IX_apartments_occupancy ON apartments(occupancy_type);
 CREATE INDEX IX_apartments_floor ON apartments(floor_number);
+CREATE INDEX IX_apartments_building_id ON apartments(building_id);
 GO
 
 /*--------------------------------------------------------------------------------
-  3. APARTMENT_RESIDENTS - liên kết user (chủ / người thuê) với căn hộ
+  4. APARTMENT_RESIDENTS - liên kết user (chủ / người thuê) với căn hộ
   MVP: 1 Resident user ↔ 1 căn hộ active (enforce ở app; DB cho phép lịch sử)
   role_in_apartment: OWNER | TENANT_REP
 --------------------------------------------------------------------------------*/
@@ -109,7 +148,7 @@ CREATE INDEX IX_ar_apartment_current ON apartment_residents(apartment_id, is_cur
 GO
 
 /*--------------------------------------------------------------------------------
-  4. HOUSEHOLD_MEMBERS - thành viên sinh sống (không nhất thiết có account)
+  5. HOUSEHOLD_MEMBERS - thành viên sinh sống (không nhất thiết có account)
 --------------------------------------------------------------------------------*/
 CREATE TABLE household_members (
     member_id       INT IDENTITY(1,1) PRIMARY KEY,
@@ -132,7 +171,7 @@ CREATE INDEX IX_hm_apartment ON household_members(apartment_id);
 GO
 
 /*--------------------------------------------------------------------------------
-  5. MONTHLY_FEES - phí dịch vụ hàng tháng theo căn hộ
+  6. MONTHLY_FEES - phí dịch vụ hàng tháng theo căn hộ
   service_fee + water_fee + parking_fee
 --------------------------------------------------------------------------------*/
 CREATE TABLE monthly_fees (
@@ -173,7 +212,7 @@ CREATE INDEX IX_mf_status ON monthly_fees(status);
 GO
 
 /*--------------------------------------------------------------------------------
-  6. REQUESTS - yêu cầu từ cư dân
+  7. REQUESTS - yêu cầu từ cư dân
   request_type: REPAIR | PARKING | MOVE_IN | MOVE_OUT | OTHER
   status: PENDING | APPROVED | REJECTED | ASSIGNED | IN_PROGRESS | COMPLETED | CANCELLED
 --------------------------------------------------------------------------------*/
@@ -237,7 +276,7 @@ CREATE INDEX IX_req_apartment ON requests(apartment_id);
 GO
 
 /*--------------------------------------------------------------------------------
-  7. REQUEST_HISTORY - lịch sử xử lý / cập nhật tiến độ
+  8. REQUEST_HISTORY - lịch sử xử lý / cập nhật tiến độ
 --------------------------------------------------------------------------------*/
 CREATE TABLE request_history (
     history_id      INT IDENTITY(1,1) PRIMARY KEY,
@@ -259,7 +298,7 @@ CREATE INDEX IX_rh_request ON request_history(request_id);
 GO
 
 /*--------------------------------------------------------------------------------
-  8. ANNOUNCEMENTS - thông báo / quy định (giờ chuyển đồ, nội quy, ...)
+  9. ANNOUNCEMENTS - thông báo / quy định (giờ chuyển đồ, nội quy, ...)
   Admin (hoặc Manager) đăng; mọi role đã login có thể đọc
 --------------------------------------------------------------------------------*/
 CREATE TABLE announcements (
@@ -282,8 +321,9 @@ CREATE TABLE announcements (
 GO
 
 /*--------------------------------------------------------------------------------
-  9. SYSTEM_SETTINGS - cấu hình đơn giản (khung giờ chuyển đồ, ...)
+  10. SYSTEM_SETTINGS - cấu hình đơn giản (khung giờ chuyển đồ, ...)
   key-value để Admin/Manager sửa không cần deploy lại
+  (Quên mật khẩu dùng OTP session — không cần bảng ticket BQL)
 --------------------------------------------------------------------------------*/
 CREATE TABLE system_settings (
     setting_key     NVARCHAR(100) NOT NULL PRIMARY KEY,
