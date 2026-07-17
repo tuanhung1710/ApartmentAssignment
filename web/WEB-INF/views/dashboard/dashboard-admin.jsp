@@ -10,7 +10,7 @@
 </div>
 
 <div class="row g-3">
-    <div class="col-md-4">
+    <div class="col-12 col-sm-6 col-xl-3">
         <div class="card stat-card h-100">
             <div class="card-body">
                 <div class="text-muted small"><i class="bi bi-people me-1"></i> Tổng người dùng</div>
@@ -18,7 +18,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-12 col-sm-6 col-xl-3">
         <div class="card stat-card h-100">
             <div class="card-body">
                 <div class="text-muted small"><i class="bi bi-lock me-1"></i> User bị khóa</div>
@@ -26,7 +26,17 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="text-muted small"><i class="bi bi-building me-1"></i> Số tòa nhà</div>
+                <div class="stat-value text-info">${empty totalBuildings ? 0 : totalBuildings}</div>
+                <a class="btn btn-sm btn-outline-primary mt-2"
+                   href="${pageContext.request.contextPath}/building?action=list">Quản lý tòa</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
         <div class="card stat-card h-100">
             <div class="card-body">
                 <div class="text-muted small"><i class="bi bi-door-open me-1"></i> Số căn hộ</div>
@@ -36,7 +46,10 @@
     </div>
 </div>
 
-<div class="mt-3">
+<div class="mt-3 d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-outline-primary" href="${pageContext.request.contextPath}/building?action=list">
+        Tòa nhà
+    </a>
     <a class="btn btn-sm btn-outline-primary" href="${pageContext.request.contextPath}/admin?action=users">
         Quản lý người dùng
     </a>
