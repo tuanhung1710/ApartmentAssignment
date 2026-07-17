@@ -22,18 +22,19 @@ ApartmentAssignment_tv1/
 │   ├── model/                  # Entity Lombok (chung)
 │   ├── dao/
 │   │   ├── UserDAO.java        # Auth / user (TV1)
+│   │   ├── BuildingDAO.java    # CRUD tòa nhà master (TV1)
 │   │   └── DashboardStatsDAO.java  # Count shell dashboard (TV1)
 │   ├── filter/                 # EncodingFilter, AuthFilter (TV1)
 │   ├── controller/
 │   │   ├── auth/               # AuthenController, DashboardController (TV1)
+│   │   ├── admin/BuildingController.java  # CRUD tòa nhà (TV1)
 │   │   ├── apartment/          # TV2
 │   │   ├── fee/                # TV3
-│   │   ├── request/            # TV4 + TV5
-│   │   └── admin/              # TV5
+│   │   └── request/            # TV4 + TV5
 │   └── util/                   # FlashUtil, AppConstants (TV1)
 ├── web/
 │   ├── assets/css/app.css
-│   ├── index.jsp               # Redirect → login
+│   ├── index.jsp               # Redirect → Landing (home) / Dashboard
 │   └── WEB-INF/
 │       ├── web.xml
 │       ├── lib/                # JAR runtime
@@ -42,10 +43,10 @@ ApartmentAssignment_tv1/
 │           ├── auth/           # login, profile, đổi MK (TV1)
 │           ├── dashboard/      # dashboard theo role (TV1 shell)
 │           ├── error/          # 403, 404 (TV1)
+│           ├── admin/          # building-* (TV1) + TV5 sau
 │           ├── apartment/      # TV2
 │           ├── fee/            # TV3
-│           ├── request/        # TV4–TV5
-│           └── admin/          # TV5
+│           └── request/        # TV4–TV5
 └── nbproject/
 ```
 
@@ -97,12 +98,17 @@ App sẽ báo rõ nếu mất kết nối CSDL. Xem luôn log Tomcat dòng `DBCo
 
 | URL | Mô tả |
 |-----|--------|
-| `/` hoặc `/auth?action=login` | Đăng nhập |
-| `/auth?action=logout` | Đăng xuất |
+| `/` hoặc `/auth` / `/auth?action=home` | Trang chủ public (Giới thiệu, Thông báo, FAQ, Liên hệ) |
+| `/auth?action=login` | Đăng nhập |
+| `/auth?action=forgot-password` | Quên mật khẩu (OTP demo email·SĐT) |
+| `/auth?action=logout` | Đăng xuất → về trang chủ |
+| `/auth?action=privacy` / `terms` | Chính sách / Điều khoản |
 | `/dashboard` | Dashboard theo role (sau login) |
 | `/profile` | Xem hồ sơ |
 | `/profile?action=edit-profile` | Sửa hồ sơ |
 | `/profile?action=change-password` | Đổi mật khẩu |
+| `/building?action=list` | CRUD tòa nhà (ADMIN/MANAGER ghi · STAFF xem) |
+| `/building?action=create` / `edit` / `detail` | Form & chi tiết tòa |
 
 Servlet map bằng **`@WebServlet`** (không khai báo servlet trong `web.xml` — xem `coding-standards.md`).
 
@@ -112,19 +118,40 @@ Session: **`currentUser`** (`User` object), không dùng các key rời `userId`
 
 ## 3. Tài khoản demo (seed)
 
-Mật khẩu tất cả: **`123456`** (plain text – MVP đồ án).
+Mật khẩu tất cả: **`123456`** (plain text – MVP đồ án).  
+Chạy **`database/schema.sql`** rồi **`database/seed.sql`** trước khi login demo.
 
 | Username | Role | Ghi chú demo |
 |----------|------|----------------|
 | `admin` | ADMIN | User, thông báo |
 | `manager` | MANAGER | Căn hộ, phí, duyệt request |
-| `staff` | STAFF | Kỹ thuật – việc được gán |
-| `staff2` | STAFF | Lễ tân |
-| `resident1` | RESIDENT | Chủ căn A-0801 |
+| `staff` | STAFF | Kỹ thuật – việc được gán + completed tuần này |
+| `staff2` | STAFF | Lễ tân – 1 việc IN_PROGRESS |
+| `resident1` | RESIDENT | Chủ căn **A-0801** (case dashboard chính) |
 | `owner1` | RESIDENT | Chủ căn A-0802 (case thuê) |
 | `tenant1` | RESIDENT | Người thuê đại diện A-0802 |
 | `resident2` | RESIDENT | Chủ A-0901 |
 | `resident3` | RESIDENT | Chủ A-1005 |
+| `resident_noapt` | RESIDENT | **Chưa gán căn** — empty state dashboard |
+| `locked_user` | STAFF | `is_active=0` — **không login**; chỉ để admin thấy “tài khoản bị khóa” |
+
+### 3.1. Dashboard expected (sau seed)
+
+Login từng role → `/dashboard` — khối `row.g-3` lấy số từ DB (không hardcode JSP).  
+Cuối `seed.sql` có block **VERIFY SEED** (Messages + result set) để đối chiếu.
+
+| Role | Username | Kỳ vọng card |
+|------|----------|--------------|
+| ADMIN | `admin` | Users **11**, Locked **1**, Apartments **282** (20×6+15×6+12×6, ~80% ACTIVE), Buildings **3** |
+| MANAGER | `manager` | Pending **1**, Processing **2**, Draft fees **2** |
+| STAFF | `staff` | Assigned **1**, In progress **0**, Completed week **≥1** |
+| STAFF | `staff2` | Assigned **0**, In progress **1** |
+| RESIDENT | `resident1` | Căn **A-0801**, phí **7/2026 · 1055000 đ · DRAFT**, open **1**, thông báo 30d **≥3** |
+| RESIDENT | `resident_noapt` | **Chưa gán căn hộ**, **Chưa có phí**, open **0** |
+
+- `completedWeek` / `newAnnouncements` dùng `SYSUTCDATETIME()` trong seed → không lệch theo ngày cố định.  
+- Mất DB / SQL lỗi: card = **0** (DAO `safeCount`), **không** 500.  
+- Menu sidebar `/apartment`, `/fee`, `/request`, `/admin` do **TV2–TV5** map servlet + JSP module (đã gỡ shell `SeedBrowse*`). TV1 giữ `/building` (CRUD tòa).
 
 ---
 
@@ -132,8 +159,8 @@ Mật khẩu tất cả: **`123456`** (plain text – MVP đồ án).
 
 | TV | Module | Deliverable chính |
 |----|--------|-------------------|
-| **TV1** | Nền tảng + Auth + Layout + Profile + Dashboard shell + DB | `DBContext`, filter, `AuthenController`, `UserDAO`, layout, 403/404, `database/*` |
-| **TV2** | Căn hộ & thành viên | CRUD căn hộ, gán chủ/thuê, thành viên |
+| **TV1** | Nền tảng + Auth + Layout + Profile + Dashboard shell + DB + **CRUD tòa nhà** | `DBContext`, filter, `AuthenController`, `UserDAO`, `BuildingDAO`/`BuildingController`, layout, 403/404, `database/*` |
+| **TV2** | Căn hộ & thành viên | CRUD căn hộ (`building_id`), gán chủ/thuê, thành viên |
 | **TV3** | Phí tháng | Tạo/công bố phí, Resident xem, đánh dấu TT |
 | **TV4** | Yêu cầu (Resident) | Gửi / list / chi tiết / hủy PENDING |
 | **TV5** | Xử lý request + Admin | Duyệt/gán/tiến độ; CRUD user; thông báo |
@@ -152,6 +179,7 @@ Mật khẩu tất cả: **`123456`** (plain text – MVP đồ án).
 - [x] Đổi mật khẩu  
 - [x] Dashboard shell theo role (card text/số, không chart)  
 - [x] Trang 403 / 404  
+- [x] CRUD tòa nhà (`/building`) + seed multi-tòa + `apartments.building_id`  
 - [ ] Merge/support TV2–TV5 khi họ push module (ngày 3–5)
 
 ---
