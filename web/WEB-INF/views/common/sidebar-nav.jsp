@@ -1,9 +1,6 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<%--
-  Fragment menu theo role — dùng chung desktop sidebar + mobile offcanvas.
-  Không bọc <aside>; parent lo layout.
---%>
+
 <a class="brand" href="${pageContext.request.contextPath}/dashboard">
     <i class="bi bi-buildings"></i> Skyland
 </a>
@@ -24,11 +21,14 @@
         </a>
     </c:if>
 
-    <%-- ADMIN / MANAGER / STAFF: căn hộ & phí --%>
+    <%-- ADMIN / MANAGER / STAFF: tòa nhà (master) + căn hộ & phí --%>
     <c:if test="${sessionScope.currentUser.role == 'MANAGER'
                || sessionScope.currentUser.role == 'ADMIN'
                || sessionScope.currentUser.role == 'STAFF'}">
-        <div class="nav-section">Căn hộ &amp; phí</div>
+        <div class="nav-section">Cơ sở &amp; phí</div>
+        <a class="nav-link" href="${pageContext.request.contextPath}/building?action=list">
+            <i class="bi bi-building me-2"></i> Tòa nhà
+        </a>
         <a class="nav-link" href="${pageContext.request.contextPath}/apartment?action=list">
             <i class="bi bi-door-open me-2"></i> Căn hộ
         </a>
