@@ -7,10 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-/**
- * JDBC connection base – hardcode connection (không dùng db.properties).
- * Đổi user/password/url theo máy local trước khi chạy.
- */
+
 public class DBContext {
 
     protected Connection connection;
@@ -24,12 +21,10 @@ public class DBContext {
     private static final String DB_PASSWORD = "17102005";
 
     public DBContext() {
-        // connection mở lazy qua getConnection()
+        
     }
 
-    /**
-     * Mở connection mới mỗi lần gọi (DAO tự close trong finally).
-     */
+    
     public Connection getConnection() {
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
@@ -45,7 +40,7 @@ public class DBContext {
         }
     }
 
-    /** true nếu mở được connection (dùng báo lỗi login thân thiện). */
+    
     public boolean testConnection() {
         Connection c = null;
         try {
