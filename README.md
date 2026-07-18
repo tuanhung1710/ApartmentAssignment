@@ -129,7 +129,9 @@ Create / init-floor mặc định: **INACTIVE + N/A**.
 | `/admin?action=add-announcement` | **TV5** Thêm thông báo |
 | `/admin?action=edit-announcement&id=` | **TV5** Sửa thông báo |
 | `/admin?action=delete-announcement&id=` | **TV5** Xóa thông báo |
-| `/request?action=manage` | ⏳ TV5 xử lý request (duyệt/gán) — sidebar placeholder, chưa implement |
+| `/request?action=manage` | **TV5** Xử lý yêu cầu (Manager/Admin xem all · Staff việc được giao) |
+| `/request` POST `approve` / `reject` / `assign` | **TV5** Duyệt / từ chối / gán staff (Manager/Admin) |
+| `/request` POST `update-progress` / `complete` | **TV5** Cập nhật tiến độ / hoàn thành (Staff được gán) |
 
 Servlet map bằng **`@WebServlet`** / **`@ServerEndpoint`** (không khai báo servlet trong `web.xml` — xem `coding-standards.md`).
 
@@ -171,7 +173,7 @@ Dashboard expected (sau seed): xem comment đầu `database/seed.sql` / block VE
 | Request chat/comment (HTTP + WebSocket) | ✅ TV4 |
 | **Admin CRUD user** (list/add/edit/detail/lock/unlock/reset MK) | ✅ **TV5** |
 | **Admin CRUD thông báo nội bộ** (list/add/edit/delete + publish) | ✅ **TV5** |
-| Duyệt / gán / cập nhật tiến độ request | ❌ TV5 còn lại (sidebar `action=manage` placeholder) |
+| **Duyệt / gán / cập nhật tiến độ request** | ✅ **TV5** (`/request?action=manage`) |
 
 ---
 
@@ -207,14 +209,13 @@ util/                 DateTimeUtil, HtmlSanitizer
 views/request/        my-list.jsp, create.jsp, detail.jsp, _comments.jsp
 ```
 
-**Chưa thuộc TV4:** duyệt/từ chối, gán staff, đổi trạng thái ASSIGNED → COMPLETED (phần TV5 còn lại). Link sidebar “Xử lý yêu cầu” (`/request?action=manage`) vẫn là placeholder.
+**Chưa thuộc TV4:** duyệt/từ chối, gán staff, đổi trạng thái (thuộc **§7b TV5 process** bên dưới).
 
 ---
 
 ## 7. TV5 — Admin user & thông báo (đã port lên `main`)
 
-Phần **quản trị hệ thống** của TV5: CRUD tài khoản + thông báo nội bộ.  
-*(Phần duyệt/gán request chưa có — xem mục 5.)*
+Phần **quản trị hệ thống** của TV5: CRUD tài khoản + thông báo nội bộ.
 
 **Quyền:** chỉ **ADMIN** (`AuthFilter` rule `/admin` + `AdminController.requireAdmin`).  
 Sidebar: **Người dùng** · **Thông báo**.
@@ -267,6 +268,55 @@ views/admin/          listUser.jsp, addUser.jsp, editUser.jsp, userDetail.jsp
 
 ---
 
+## 7b. TV5 — Xử lý request (duyệt / gán / tiến độ)
+
+Sidebar **Xử lý yêu cầu** → `/request?action=manage` (không còn placeholder).
+
+### Luồng trạng thái
+
+```
+PENDING ──approve──► APPROVED ──assign──► ASSIGNED ──► IN_PROGRESS ──► COMPLETED
+   │                     │
+   └── reject ──► REJECTED     (Resident vẫn hủy được khi PENDING → CANCELLED)
+```
+
+| Role | Quyền |
+|------|--------|
+| **MANAGER / ADMIN** | List all · detail · approve · reject · assign staff |
+| **STAFF** | List **chỉ việc được gán** · detail · update-progress · complete |
+| **RESIDENT** | Giữ TV4: my / create / detail(own) / cancel PENDING |
+
+### Actions
+
+| Action | Method | Ai | Điều kiện |
+|--------|--------|----|-----------|
+| `manage` / `list` (staff+) | GET | Processor | Staff tự filter `assigned_to = me` |
+| `detail` | GET | Theo ACL | Resident = owner · Staff = assigned · Mgr/Admin = all |
+| `approve` | POST | Mgr/Admin | `status = PENDING` |
+| `reject` | POST | Mgr/Admin | `status = PENDING` + `rejectReason` bắt buộc |
+| `assign` | POST | Mgr/Admin | `status = APPROVED` + `staffId` STAFF active |
+| `update-progress` | POST | Staff assigned | ASSIGNED→IN_PROGRESS/COMPLETED · IN_PROGRESS→… |
+| `complete` | POST | Staff assigned | ASSIGNED hoặc IN_PROGRESS → COMPLETED |
+
+Mỗi lần đổi status ghi `request_history` (`[APPROVE]`, `[REJECT]`, `[ASSIGN]`, …).
+
+### Package / view
+
+```
+controller/request/   RequestController  (+ manage/approve/reject/assign/progress/complete)
+dao/                  RequestDAO         (+ findWithFilters, approve/reject/assign/…)
+                      UserDAO.findActiveStaff
+views/request/        manage-list.jsp, manage-detail.jsp   (processor)
+                      my-list.jsp, create.jsp, detail.jsp  (resident – TV4)
+```
+
+**Test nhanh:**  
+1. `resident1` gửi request → PENDING  
+2. `manager` / `admin` → **Xử lý yêu cầu** → Approve → Assign `staff`  
+3. `staff` → việc được giao → Update progress / Complete  
+
+---
+
 ## 8. Phân công (tóm tắt)
 
 | TV | Module | Deliverable chính | Trên `main` |
@@ -275,7 +325,7 @@ views/admin/          listUser.jsp, addUser.jsp, editUser.jsp, userDetail.jsp
 | **TV2** | Căn hộ & thành viên | CRUD căn, gán chủ/thuê, thành viên, occupancy | ✅ |
 | **TV3** | Phí tháng | Tạo/công bố phí, Resident xem, đánh dấu TT | ✅ |
 | **TV4** | Yêu cầu (Resident) | Gửi / list / chi tiết / hủy PENDING + chat | ✅ |
-| **TV5** | Admin + xử lý request | CRUD user + thông báo; duyệt/gán/tiến độ request | ✅ Admin · ⏳ manage request |
+| **TV5** | Admin + xử lý request | CRUD user + thông báo; duyệt/gán/tiến độ request | ✅ |
 
 ---
 

@@ -3,6 +3,7 @@ package apartmentmanagement.dao;
 import apartmentmanagement.dal.DBContext;
 import apartmentmanagement.model.Request;
 import apartmentmanagement.util.AppConstants;
+import apartmentmanagement.util.DateTimeUtil;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -270,6 +271,431 @@ public class RequestDAO extends DBContext {
             return false;
         } finally {
             closeResources();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // TV5 – xử lý request (Manager/Admin/Staff)
+    // -------------------------------------------------------------------------
+
+    public static final String ACTION_APPROVE = "APPROVE";
+    public static final String ACTION_REJECT = "REJECT";
+    public static final String ACTION_ASSIGN = "ASSIGN";
+    public static final String ACTION_UPDATE_PROGRESS = "UPDATE_PROGRESS";
+    public static final String ACTION_COMPLETE = "COMPLETE";
+
+    /**
+     * Danh sách request cho màn manage (lọc status/type/assignedTo + phân trang).
+     * {@code assignedTo != null} → chỉ việc giao cho staff đó.
+     */
+    public List<Request> findWithFilters(String status, String requestType,
+            Integer assignedTo, int page, int pageSize) {
+        List<Request> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(SELECT_WITH_JOINS + "WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+        appendManageFilters(sql, params, status, requestType, assignedTo);
+        sql.append(" ORDER BY r.created_at DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, pageSize);
+        params.add((safePage - 1) * safeSize);
+        params.add(safeSize);
+
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return list;
+            }
+            statement = connection.prepareStatement(sql.toString());
+            setParams(params);
+            resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                Request req = getFromResultSet(resultSet);
+                mapJoinFields(req, resultSet);
+                list.add(req);
+            }
+        } catch (SQLException e) {
+            System.out.println("RequestDAO.findWithFilters error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return list;
+    }
+
+    public int countWithFilters(String status, String requestType, Integer assignedTo) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM requests r WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+        appendManageFilters(sql, params, status, requestType, assignedTo);
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return 0;
+            }
+            statement = connection.prepareStatement(sql.toString());
+            setParams(params);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.out.println("RequestDAO.countWithFilters error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return 0;
+    }
+
+    public int countByStatus(String status) {
+        String sql = "SELECT COUNT(*) FROM requests WHERE status = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return 0;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, status);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.out.println("RequestDAO.countByStatus error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return 0;
+    }
+
+    public int countAll() {
+        String sql = "SELECT COUNT(*) FROM requests";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return 0;
+            }
+            statement = connection.prepareStatement(sql);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.out.println("RequestDAO.countAll error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return 0;
+    }
+
+    /** Ghi chú xử lý gần nhất (note history không rỗng). */
+    public String findLatestProcessingNote(int requestId) {
+        String sql = "SELECT TOP 1 h.note "
+                + "FROM request_history h "
+                + "WHERE h.request_id = ? AND h.note IS NOT NULL AND LTRIM(RTRIM(h.note)) <> '' "
+                + "ORDER BY h.created_at DESC, h.history_id DESC";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return null;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, requestId);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getString("note");
+            }
+        } catch (SQLException e) {
+            System.out.println("RequestDAO.findLatestProcessingNote error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return null;
+    }
+
+    /** PENDING → APPROVED (+ history). */
+    public boolean approveRequest(int requestId, int approvedBy, String note) {
+        String updateSql = "UPDATE requests SET status = ?, approved_by = ?, approved_at = ?, updated_at = ? "
+                + "WHERE request_id = ? AND status = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            connection.setAutoCommit(false);
+            Timestamp now = DateTimeUtil.nowTimestamp();
+            statement = connection.prepareStatement(updateSql);
+            statement.setString(1, AppConstants.STATUS_APPROVED);
+            statement.setInt(2, approvedBy);
+            statement.setTimestamp(3, now);
+            statement.setTimestamp(4, now);
+            statement.setInt(5, requestId);
+            statement.setString(6, AppConstants.STATUS_PENDING);
+            int affected = statement.executeUpdate();
+            statement.close();
+            statement = null;
+            if (affected != 1) {
+                connection.rollback();
+                return false;
+            }
+            insertProcessingHistory(requestId, approvedBy,
+                    AppConstants.STATUS_PENDING, AppConstants.STATUS_APPROVED,
+                    ACTION_APPROVE,
+                    (note == null || note.trim().isEmpty()) ? "Phê duyệt yêu cầu" : note);
+            connection.commit();
+            return true;
+        } catch (SQLException e) {
+            System.out.println("RequestDAO.approveRequest error: " + e.getMessage());
+            rollbackQuietly();
+            return false;
+        } finally {
+            restoreAutoCommit();
+            closeResources();
+        }
+    }
+
+    /** PENDING → REJECTED (+ reject_reason, history). */
+    public boolean rejectRequest(int requestId, int rejectedBy, String rejectReason) {
+        String updateSql = "UPDATE requests SET status = ?, reject_reason = ?, approved_by = ?, "
+                + "approved_at = ?, updated_at = ? WHERE request_id = ? AND status = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            connection.setAutoCommit(false);
+            String reason = rejectReason == null ? "" : rejectReason.trim();
+            Timestamp now = DateTimeUtil.nowTimestamp();
+            statement = connection.prepareStatement(updateSql);
+            statement.setString(1, AppConstants.STATUS_REJECTED);
+            statement.setString(2, reason);
+            statement.setInt(3, rejectedBy);
+            statement.setTimestamp(4, now);
+            statement.setTimestamp(5, now);
+            statement.setInt(6, requestId);
+            statement.setString(7, AppConstants.STATUS_PENDING);
+            int affected = statement.executeUpdate();
+            statement.close();
+            statement = null;
+            if (affected != 1) {
+                connection.rollback();
+                return false;
+            }
+            insertProcessingHistory(requestId, rejectedBy,
+                    AppConstants.STATUS_PENDING, AppConstants.STATUS_REJECTED,
+                    ACTION_REJECT, reason);
+            connection.commit();
+            return true;
+        } catch (SQLException e) {
+            System.out.println("RequestDAO.rejectRequest error: " + e.getMessage());
+            rollbackQuietly();
+            return false;
+        } finally {
+            restoreAutoCommit();
+            closeResources();
+        }
+    }
+
+    /** APPROVED → ASSIGNED (+ assigned_to, history). */
+    public boolean assignStaff(int requestId, int staffId, int assignedBy, String note) {
+        String updateSql = "UPDATE requests SET assigned_to = ?, status = ?, updated_at = ? "
+                + "WHERE request_id = ? AND status = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            connection.setAutoCommit(false);
+            statement = connection.prepareStatement(updateSql);
+            statement.setInt(1, staffId);
+            statement.setString(2, AppConstants.STATUS_ASSIGNED);
+            statement.setTimestamp(3, DateTimeUtil.nowTimestamp());
+            statement.setInt(4, requestId);
+            statement.setString(5, AppConstants.STATUS_APPROVED);
+            int affected = statement.executeUpdate();
+            statement.close();
+            statement = null;
+            if (affected != 1) {
+                connection.rollback();
+                return false;
+            }
+            insertProcessingHistory(requestId, assignedBy,
+                    AppConstants.STATUS_APPROVED, AppConstants.STATUS_ASSIGNED,
+                    ACTION_ASSIGN,
+                    (note == null || note.trim().isEmpty()) ? "Gán Staff xử lý" : note);
+            connection.commit();
+            return true;
+        } catch (SQLException e) {
+            System.out.println("RequestDAO.assignStaff error: " + e.getMessage());
+            rollbackQuietly();
+            return false;
+        } finally {
+            restoreAutoCommit();
+            closeResources();
+        }
+    }
+
+    /**
+     * Staff cập nhật tiến độ (ASSIGNED/IN_PROGRESS → IN_PROGRESS/COMPLETED).
+     * Chỉ staff được gán mới update được.
+     */
+    public boolean updateProgress(int requestId, int staffId, String oldStatus,
+            String newStatus, String note) {
+        boolean completed = AppConstants.STATUS_COMPLETED.equals(newStatus);
+        String updateSql = "UPDATE requests SET status = ?, "
+                + (completed ? "completed_at = ?, " : "")
+                + "updated_at = ? "
+                + "WHERE request_id = ? AND assigned_to = ? AND status = ? "
+                + "AND status IN (?, ?)";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            connection.setAutoCommit(false);
+            Timestamp now = DateTimeUtil.nowTimestamp();
+            statement = connection.prepareStatement(updateSql);
+            int idx = 1;
+            statement.setString(idx++, newStatus);
+            if (completed) {
+                statement.setTimestamp(idx++, now);
+            }
+            statement.setTimestamp(idx++, now);
+            statement.setInt(idx++, requestId);
+            statement.setInt(idx++, staffId);
+            statement.setString(idx++, oldStatus);
+            statement.setString(idx++, AppConstants.STATUS_ASSIGNED);
+            statement.setString(idx, AppConstants.STATUS_IN_PROGRESS);
+            int affected = statement.executeUpdate();
+            statement.close();
+            statement = null;
+            if (affected != 1) {
+                connection.rollback();
+                return false;
+            }
+            insertProcessingHistory(requestId, staffId, oldStatus, newStatus,
+                    ACTION_UPDATE_PROGRESS,
+                    (note == null || note.trim().isEmpty())
+                            ? ("Cập nhật tiến độ: " + newStatus) : note);
+            connection.commit();
+            return true;
+        } catch (SQLException e) {
+            System.out.println("RequestDAO.updateProgress error: " + e.getMessage());
+            rollbackQuietly();
+            return false;
+        } finally {
+            restoreAutoCommit();
+            closeResources();
+        }
+    }
+
+    /** Staff hoàn thành nhanh (ASSIGNED/IN_PROGRESS → COMPLETED). */
+    public boolean completeRequest(int requestId, int staffId, String oldStatus, String note) {
+        String updateSql = "UPDATE requests SET status = ?, completed_at = ?, updated_at = ? "
+                + "WHERE request_id = ? AND assigned_to = ? AND status = ? "
+                + "AND status IN (?, ?)";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return false;
+            }
+            connection.setAutoCommit(false);
+            Timestamp now = DateTimeUtil.nowTimestamp();
+            statement = connection.prepareStatement(updateSql);
+            statement.setString(1, AppConstants.STATUS_COMPLETED);
+            statement.setTimestamp(2, now);
+            statement.setTimestamp(3, now);
+            statement.setInt(4, requestId);
+            statement.setInt(5, staffId);
+            statement.setString(6, oldStatus);
+            statement.setString(7, AppConstants.STATUS_ASSIGNED);
+            statement.setString(8, AppConstants.STATUS_IN_PROGRESS);
+            int affected = statement.executeUpdate();
+            statement.close();
+            statement = null;
+            if (affected != 1) {
+                connection.rollback();
+                return false;
+            }
+            insertProcessingHistory(requestId, staffId, oldStatus,
+                    AppConstants.STATUS_COMPLETED, ACTION_COMPLETE,
+                    (note == null || note.trim().isEmpty()) ? "Hoàn thành yêu cầu" : note);
+            connection.commit();
+            return true;
+        } catch (SQLException e) {
+            System.out.println("RequestDAO.completeRequest error: " + e.getMessage());
+            rollbackQuietly();
+            return false;
+        } finally {
+            restoreAutoCommit();
+            closeResources();
+        }
+    }
+
+    private void appendManageFilters(StringBuilder sql, List<Object> params,
+            String status, String requestType, Integer assignedTo) {
+        if (status != null && !status.trim().isEmpty()) {
+            sql.append(" AND r.status = ? ");
+            params.add(status.trim());
+        }
+        if (requestType != null && !requestType.trim().isEmpty()) {
+            sql.append(" AND r.request_type = ? ");
+            params.add(requestType.trim());
+        }
+        if (assignedTo != null) {
+            sql.append(" AND r.assigned_to = ? ");
+            params.add(assignedTo);
+        }
+    }
+
+    private void insertProcessingHistory(int requestId, int changedBy,
+            String previousStatus, String currentStatus,
+            String action, String note) throws SQLException {
+        String sql = "INSERT INTO request_history "
+                + "(request_id, changed_by, old_status, new_status, note, created_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?)";
+        String historyNote = buildHistoryNote(action, note);
+        statement = connection.prepareStatement(sql);
+        statement.setInt(1, requestId);
+        statement.setInt(2, changedBy);
+        if (previousStatus == null || previousStatus.trim().isEmpty()) {
+            statement.setNull(3, Types.NVARCHAR);
+        } else {
+            statement.setString(3, previousStatus);
+        }
+        statement.setString(4, currentStatus);
+        statement.setString(5, historyNote);
+        statement.setTimestamp(6, DateTimeUtil.nowTimestamp());
+        statement.executeUpdate();
+        statement.close();
+        statement = null;
+    }
+
+    private String buildHistoryNote(String action, String note) {
+        String actionPart = (action == null || action.trim().isEmpty())
+                ? "PROCESS" : action.trim().toUpperCase();
+        String msg = (note == null || note.trim().isEmpty()) ? "" : note.trim();
+        if (msg.isEmpty()) {
+            return "[" + actionPart + "]";
+        }
+        String full = "[" + actionPart + "] " + msg;
+        return full.length() > 1000 ? full.substring(0, 1000) : full;
+    }
+
+    private void rollbackQuietly() {
+        try {
+            if (connection != null) {
+                connection.rollback();
+            }
+        } catch (SQLException ex) {
+            System.out.println("RequestDAO rollback error: " + ex.getMessage());
+        }
+    }
+
+    private void restoreAutoCommit() {
+        try {
+            if (connection != null) {
+                connection.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            System.out.println("RequestDAO setAutoCommit error: " + e.getMessage());
         }
     }
 
