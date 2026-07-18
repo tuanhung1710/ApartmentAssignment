@@ -32,9 +32,6 @@
         <a class="nav-link" href="${pageContext.request.contextPath}/apartment?action=list">
             <i class="bi bi-door-open me-2"></i> Căn hộ
         </a>
-        <a class="nav-link" href="${pageContext.request.contextPath}/apartment?action=members">
-            <i class="bi bi-people me-2"></i> Thành viên
-        </a>
         <a class="nav-link" href="${pageContext.request.contextPath}/fee?action=list">
             <i class="bi bi-cash-coin me-2"></i> Phí tháng
         </a>

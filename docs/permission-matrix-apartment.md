@@ -1,5 +1,8 @@
 # Task 14 – Permission Matrix  
-## Module Apartment & Resident (UC-APT-01 … 10)
+## Module Apartment & Resident (UC-APT-01 … 09)
+
+> **UC-APT-10 (Danh sách thành viên global + Export)** đã gỡ: không còn menu/sidebar `Thành viên`, không còn `action=members` / `export-members`.  
+> Thành viên hộ quản lý trên **chi tiết căn** (add/edit/remove).
 
 | Ký hiệu | Nghĩa |
 |---------|--------|
@@ -21,9 +24,8 @@
 | **05** | Chi tiết căn hộ | ✅ | ✅ | 👁 | ⚠ chỉ căn được gán |
 | **06** | Gán / đổi chủ sở hữu | ✅ | ✅ | ❌ | ❌ |
 | **07** | Gán người thuê | ✅ | ✅ | ❌ | ❌ |
-| **08** | Thêm thành viên | ✅ | ✅ | ❌ | ❌ |
-| **09** | Cập nhật / Soft delete thành viên | ✅ | ✅ | ❌ | ❌ |
-| **10** | Danh sách thành viên + Export | ✅ full + export | ✅ full + export | 👁 list **không** export | ❌ |
+| **08** | Thêm thành viên (trên detail căn) | ✅ | ✅ | ❌ | ❌ |
+| **09** | Cập nhật / Xóa thành viên (trên detail căn) | ✅ | ✅ | ❌ | ❌ |
 
 \* RESIDENT dùng menu “Căn hộ của tôi” (placeholder / gán current) — không vào quản lý list căn.
 
@@ -36,9 +38,7 @@
 | Quản lý master căn (CRUD + status) | ✅ | ✅ | ❌ | ❌ |
 | Xem list/detail căn | ✅ | ✅ | ✅ | ⚠ detail của mình |
 | Gán Owner / Tenant | ✅ | ✅ | ❌ | ❌ |
-| Nhân khẩu (TV add/edit/remove) | ✅ | ✅ | ❌ | ❌ |
-| List TV search/filter | ✅ | ✅ | 👁 | ❌ |
-| Export Excel TV | ✅ | ✅ | ❌ | ❌ |
+| Nhân khẩu (TV add/edit/remove trên detail) | ✅ | ✅ | ❌ | ❌ |
 | Audit / History (xem trên detail) | ✅ | ✅ | 👁 | ⚠ nếu xem được detail |
 
 ---
@@ -49,9 +49,8 @@
 |-------|-----|
 | Path `/apartment` login + role map | `AuthFilter` |
 | Manage (create/update/delete/assign/member write) | `canManage()` = ADMIN \| MANAGER |
-| View list căn / list TV | `canViewList()` = ADMIN \| MANAGER \| STAFF |
+| View list căn | `canViewList()` = ADMIN \| MANAGER \| STAFF |
 | Detail RESIDENT | `canViewDetail()` + `isCurrentResident` |
-| Export members | `canManage()` only |
 
 ---
 
@@ -68,7 +67,7 @@
 
 | # | Tiêu chí |
 |---|----------|
-| P-01 | Staff vào list căn / list TV được, không thấy nút Thêm/Sửa/Gán/Export |
-| P-02 | Manager làm đủ 01–10 (trừ hard rule nghiệp vụ) |
-| P-03 | Resident không vào `action=members` |
+| P-01 | Staff vào list căn được, không thấy nút Thêm/Sửa/Gán |
+| P-02 | Manager làm đủ 01–09 (trừ hard rule nghiệp vụ) |
+| P-03 | Không còn menu/action danh sách thành viên global |
 | P-04 | Resident detail căn không gán → 403 |

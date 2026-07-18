@@ -1,11 +1,15 @@
-# UC-APT-10 – Danh sách thành viên (Thiết kế màn hình)
+# UC-APT-10 – Danh sách thành viên (ĐÃ GỠ)
+
+> **Trạng thái:** đã bỏ UI/action.  
+> Không còn menu **Thành viên**, `action=members`, `export-members`, `members.jsp`.  
+> Thành viên hộ quản lý trên **chi tiết căn** (`detail` + add/edit/remove-member).
 
 | Mục | Nội dung |
 |-----|----------|
-| **UC ID** | UC-APT-10 |
-| **URL** | `GET /apartment?action=members` · Export `action=export-members` |
-| **Actor** | ADMIN, MANAGER (full) · STAFF (xem) · RESIDENT (không) |
-| **View** | `web/WEB-INF/views/apartment/members.jsp` |
+| **UC ID** | UC-APT-10 (legacy) |
+| **URL** | ~~`GET /apartment?action=members`~~ · ~~`export-members`~~ |
+| **Actor** | — |
+| **View** | ~~`members.jsp`~~ |
 | **Standards** | `coding-standards.md` |
 
 ---

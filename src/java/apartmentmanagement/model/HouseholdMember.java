@@ -22,7 +22,7 @@ public class HouseholdMember {
     private Boolean isActive;
     private Timestamp createdAt;
 
-    /** JOIN display (UC-APT-10 list) — không phải nested entity */
+    /** Display helpers (JOIN nếu cần) — không phải nested entity */
     private String apartmentCode;
     private String building;
     private Integer floorNumber;
