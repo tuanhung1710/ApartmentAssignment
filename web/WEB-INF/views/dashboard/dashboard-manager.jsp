@@ -32,8 +32,9 @@
     <div class="col-md-4">
         <div class="card stat-card h-100">
             <div class="card-body">
-                <div class="text-muted small"><i class="bi bi-file-earmark me-1"></i> Phí chưa công bố</div>
+                <div class="text-muted small"><i class="bi bi-cash-coin me-1"></i> Phí chưa công bố</div>
                 <div class="stat-value text-secondary">${empty draftFees ? 0 : draftFees}</div>
+                <p class="small text-muted mb-0 mt-1">DRAFT + ASSIGNED (module phí)</p>
                 <a class="btn btn-sm btn-outline-primary mt-2"
                    href="${pageContext.request.contextPath}/fee?action=list">Quản lý phí</a>
             </div>

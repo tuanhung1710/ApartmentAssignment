@@ -16,7 +16,7 @@ public class DashboardStatsDAO extends DBContext {
      * @return count; lỗi → 0
      */
     public int countApartments() {
-        return safeCount("SELECT COUNT(*) FROM apartments", null);
+        return safeCount("SELECT COUNT(*) FROM apartments");
     }
 
     /**
@@ -30,12 +30,16 @@ public class DashboardStatsDAO extends DBContext {
     }
 
     /**
-     * Số phiếu phí đang DRAFT (chưa chốt).
+     * Số đợt phí module TV3 chưa công bố (DRAFT + ASSIGNED trên bảng {@code fees}).
+     * Không dùng legacy {@code monthly_fees}.
      *
      * @return count; lỗi → 0
      */
     public int countDraftFees() {
-        return safeCount("SELECT COUNT(*) FROM monthly_fees WHERE status = ?", AppConstants.FEE_DRAFT);
+        return safeCount(
+                "SELECT COUNT(*) FROM fees WHERE status IN (?, ?)",
+                AppConstants.FEE_STATUS_DRAFT,
+                AppConstants.FEE_STATUS_ASSIGNED);
     }
 
     /**
@@ -107,18 +111,20 @@ public class DashboardStatsDAO extends DBContext {
     }
 
     /**
-     * Tóm tắt phiếu phí mới nhất của căn mà user đang ở
-     * (format: {@code MM/yyyy · amount đ · status}).
+     * Tóm tắt khoản phí (fee module) mới nhất của căn user đang ở —
+     * chỉ đợt đã PUBLISHED; format: {@code title · amount đ · PAID/UNPAID}.
      *
      * @param userId id user resident
      * @return chuỗi tóm tắt hoặc null
      */
     public String findLatestFeeSummaryForUser(int userId) {
-        String sql = "SELECT TOP 1 mf.fee_month, mf.fee_year, mf.total_amount, mf.status "
-                + "FROM monthly_fees mf "
-                + "INNER JOIN apartment_residents ar ON mf.apartment_id = ar.apartment_id "
+        String sql = "SELECT TOP 1 f.title, fa.amount, fa.status, f.fee_month, f.fee_year "
+                + "FROM fee_assignments fa "
+                + "INNER JOIN fees f ON f.fee_id = fa.fee_id "
+                + "INNER JOIN apartment_residents ar ON fa.apartment_id = ar.apartment_id "
                 + "WHERE ar.user_id = ? AND ar.is_current = 1 "
-                + "ORDER BY mf.fee_year DESC, mf.fee_month DESC, mf.fee_id DESC";
+                + "AND f.status = ? "
+                + "ORDER BY f.fee_year DESC, f.fee_month DESC, fa.assignment_id DESC";
         try {
             connection = getConnection();
             if (connection == null) {
@@ -126,14 +132,26 @@ public class DashboardStatsDAO extends DBContext {
             }
             statement = connection.prepareStatement(sql);
             statement.setInt(1, userId);
+            statement.setString(2, AppConstants.FEE_STATUS_PUBLISHED);
             resultSet = statement.executeQuery();
             if (resultSet.next()) {
-                int month = resultSet.getInt("fee_month");
-                int year = resultSet.getInt("fee_year");
-                java.math.BigDecimal total = resultSet.getBigDecimal("total_amount");
-                String status = resultSet.getString("status");
-                String totalText = total == null ? "0" : total.toPlainString();
-                return month + "/" + year + " · " + totalText + " đ · " + status;
+                String title = resultSet.getString("title");
+                java.math.BigDecimal amount = resultSet.getBigDecimal("amount");
+                String payStatus = resultSet.getString("status");
+                Integer month = (Integer) resultSet.getObject("fee_month");
+                Integer year = (Integer) resultSet.getObject("fee_year");
+                String amountText = amount == null ? "0" : amount.toPlainString();
+                String period = "";
+                if (month != null && year != null) {
+                    period = month + "/" + year + " · ";
+                } else if (year != null) {
+                    period = year + " · ";
+                }
+                String shortTitle = title == null ? "Phí" : title;
+                if (shortTitle.length() > 28) {
+                    shortTitle = shortTitle.substring(0, 28) + "…";
+                }
+                return period + shortTitle + " · " + amountText + " đ · " + payStatus;
             }
         } catch (SQLException e) {
             System.out.println("DashboardStatsDAO.findLatestFeeSummaryForUser: " + e.getMessage());
@@ -184,19 +202,21 @@ public class DashboardStatsDAO extends DBContext {
         String sql = "SELECT COUNT(*) FROM announcements "
                 + "WHERE is_published = 1 "
                 + "AND (published_at IS NULL OR published_at >= DATEADD(day, -30, SYSUTCDATETIME()))";
-        return safeCount(sql, null);
+        return safeCount(sql);
     }
 
-    /** COUNT(*) với 0 hoặc 1 tham số String; lỗi → 0. */
-    private int safeCount(String sql, String stringParam) {
+    /** COUNT(*) với 0..n tham số String; lỗi → 0. */
+    private int safeCount(String sql, String... stringParams) {
         try {
             connection = getConnection();
             if (connection == null) {
                 return 0;
             }
             statement = connection.prepareStatement(sql);
-            if (stringParam != null) {
-                statement.setString(1, stringParam);
+            if (stringParams != null) {
+                for (int i = 0; i < stringParams.length; i++) {
+                    statement.setString(i + 1, stringParams[i]);
+                }
             }
             resultSet = statement.executeQuery();
             if (resultSet.next()) {

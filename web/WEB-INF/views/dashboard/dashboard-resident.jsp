@@ -23,8 +23,9 @@
     <div class="col-md-3">
         <div class="card stat-card h-100">
             <div class="card-body">
-                <div class="text-muted small"><i class="bi bi-receipt me-1"></i> Phí tháng gần nhất</div>
+                <div class="text-muted small"><i class="bi bi-receipt me-1"></i> Phí gần nhất</div>
                 <div class="small mt-2 mb-0 fw-semibold">${empty latestFee ? 'Chưa có phí' : latestFee}</div>
+                <p class="small text-muted mb-0 mt-1">Đợt đã công bố · căn hiện tại</p>
                 <a class="btn btn-sm btn-outline-primary mt-2"
                    href="${pageContext.request.contextPath}/fee?action=my">Xem phí</a>
             </div>

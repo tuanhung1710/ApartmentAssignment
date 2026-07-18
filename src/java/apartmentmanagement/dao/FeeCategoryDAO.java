@@ -74,10 +74,16 @@ public class FeeCategoryDAO extends DBContext {
         return null;
     }
 
+    /**
+     * @return generated category_id; -1 generic failure; -2 duplicate name; -3 table missing
+     */
     public int insert(FeeCategory cat) {
         String sql = "INSERT INTO fee_categories (name, description, is_active) VALUES (?, ?, ?)";
         try {
             connection = getConnection();
+            if (connection == null) {
+                return -1;
+            }
             statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             statement.setString(1, cat.getName());
             statement.setString(2, cat.getDescription());
@@ -90,11 +96,47 @@ public class FeeCategoryDAO extends DBContext {
                 }
             }
         } catch (SQLException e) {
-            System.out.println("FeeCategoryDAO.insert error: " + e.getMessage());
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            System.out.println("FeeCategoryDAO.insert error: " + msg);
+            // SQL Server unique violation
+            if (e.getErrorCode() == 2627 || e.getErrorCode() == 2601
+                    || msg.toLowerCase().contains("unique")
+                    || msg.toLowerCase().contains("duplicate")) {
+                return -2;
+            }
+            // missing object / invalid object name
+            if (e.getErrorCode() == 208 || msg.toLowerCase().contains("invalid object name")) {
+                return -3;
+            }
         } finally {
             closeResources();
         }
         return -1;
+    }
+
+    /** Tìm theo tên (so khớp trim, không phân biệt hoa thường theo collation DB). */
+    public FeeCategory findByName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return null;
+        }
+        String sql = "SELECT TOP 1 * FROM fee_categories WHERE LTRIM(RTRIM(name)) = LTRIM(RTRIM(?))";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return null;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, name.trim());
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return getFromResultSet(resultSet);
+            }
+        } catch (SQLException e) {
+            System.out.println("FeeCategoryDAO.findByName error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return null;
     }
 
     public boolean update(FeeCategory cat) {

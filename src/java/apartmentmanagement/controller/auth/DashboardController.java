@@ -75,7 +75,7 @@ public class DashboardController extends HttpServlet {
         request.setAttribute("totalBuildings", buildingDAO.countAll());
     }
 
-    /** KPI vận hành: yêu cầu chờ/đang xử lý, phí nháp. */
+    /** KPI vận hành: yêu cầu chờ/đang xử lý, đợt phí chưa PUBLISHED (module fees). */
     private void loadManagerStats(HttpServletRequest request) {
 
         request.setAttribute("pendingRequests",
@@ -85,6 +85,7 @@ public class DashboardController extends HttpServlet {
         int inProgress = statsDAO.countRequestsByStatus(AppConstants.STATUS_IN_PROGRESS);
         request.setAttribute("processingRequests", assigned + inProgress);
 
+        // draftFees = số đợt fees DRAFT + ASSIGNED (chưa công bố cho cư dân)
         request.setAttribute("draftFees", statsDAO.countDraftFees());
     }
 

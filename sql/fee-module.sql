@@ -2,6 +2,9 @@ USE ApartmentManagement;
 GO
 
 SET NOCOUNT ON;
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
 GO
 
 IF OBJECT_ID(N'dbo.fee_categories', N'U') IS NULL

@@ -171,6 +171,244 @@ body {
     }
 }
 
+/* ---------- Fee create form (/fee?action=create) ---------- */
+.fee-form-page {
+    width: 100%;
+    max-width: 920px;
+}
+
+.fee-form-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+}
+
+.fee-form-subtitle {
+    color: #64748b;
+    font-size: 0.925rem;
+    max-width: 40rem;
+}
+
+.fee-btn-back {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    border-radius: 0.5rem;
+    padding: 0.45rem 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.fee-btn-back:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+
+.fee-form-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+
+.fee-form-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 1.1rem 1.25rem;
+    border-bottom: 1px solid #eef2f7;
+    background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+}
+
+.fee-form-icon-box {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(13, 110, 253, 0.12);
+    color: var(--brand);
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.fee-form-card-title {
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+}
+
+.fee-form-card-desc {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.fee-form-card-body {
+    padding: 1.25rem;
+}
+
+.fee-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.4rem;
+}
+
+.fee-label .req {
+    color: #dc2626;
+}
+
+.fee-input,
+.fee-form-page .form-select.fee-input,
+.fee-form-page .form-control.fee-input {
+    border-radius: 0.6rem;
+    border-color: #cbd5e1;
+    min-height: 2.55rem;
+    box-shadow: none;
+}
+
+.fee-input:focus,
+.fee-form-page .form-select.fee-input:focus,
+.fee-form-page .form-control.fee-input:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.fee-amount-group .fee-amount-suffix,
+.fee-search-group .input-group-text {
+    border-radius: 0 0.6rem 0.6rem 0;
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #64748b;
+}
+
+.fee-amount-group .fee-input,
+.fee-search-group .fee-input {
+    border-radius: 0.6rem 0 0 0.6rem;
+}
+
+.fee-search-group .input-group-text {
+    border-radius: 0.6rem 0 0 0.6rem;
+}
+
+.fee-search-group .fee-input {
+    border-radius: 0 0.6rem 0.6rem 0;
+}
+
+.fee-divider {
+    height: 1px;
+    background: #eef2f7;
+    margin: 1.25rem 0;
+}
+
+.scope-tile {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    min-height: 3.1rem;
+    margin: 0;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid #dbe3ee;
+    border-radius: 0.75rem;
+    background: #fff;
+    color: #334155;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+    user-select: none;
+}
+
+.scope-tile i {
+    font-size: 1.1rem;
+    color: #64748b;
+}
+
+.scope-tile:hover {
+    border-color: #93c5fd;
+    background: #f8fbff;
+}
+
+.btn-check:checked + .scope-tile,
+.btn-check:focus + .scope-tile {
+    border-color: var(--brand);
+    background: rgba(13, 110, 253, 0.08);
+    color: var(--brand-dark);
+    box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.12);
+}
+
+.btn-check:checked + .scope-tile i,
+.btn-check:focus + .scope-tile i {
+    color: var(--brand);
+}
+
+.fee-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 1.35rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eef2f7;
+}
+
+.fee-btn-submit {
+    background: var(--brand);
+    border: 1px solid var(--brand);
+    color: #fff;
+    border-radius: 0.6rem;
+    padding: 0.6rem 1.1rem;
+    font-weight: 600;
+}
+
+.fee-btn-submit:hover {
+    background: var(--brand-dark);
+    border-color: var(--brand-dark);
+    color: #fff;
+}
+
+.fee-btn-cancel {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #475569;
+    border-radius: 0.6rem;
+    padding: 0.6rem 1.1rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.fee-btn-cancel:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+
+@media (max-width: 575.98px) {
+    .fee-form-top {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .fee-btn-back {
+        align-self: flex-start;
+    }
+
+    .fee-form-card-body {
+        padding: 1rem;
+    }
+
+    .fee-btn-submit,
+    .fee-btn-cancel {
+        width: 100%;
+        text-align: center;
+    }
+}
+
 /* ---------- Breakpoints ---------- */
 
 /* ≥ sm (576): padding thoáng hơn */

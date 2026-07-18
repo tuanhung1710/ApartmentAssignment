@@ -600,6 +600,25 @@ public class FeeController extends HttpServlet {
             response.sendRedirect(request.getContextPath() + "/fee?action=categories");
             return;
         }
+        if (name.length() > 100) {
+            FlashUtil.error(request, "Tên danh mục tối đa 100 ký tự.");
+            response.sendRedirect(request.getContextPath() + "/fee?action=categories");
+            return;
+        }
+        if (description != null && description.length() > 500) {
+            FlashUtil.error(request, "Mô tả tối đa 500 ký tự.");
+            response.sendRedirect(request.getContextPath() + "/fee?action=categories");
+            return;
+        }
+
+        // Kiểm tra trùng trước để message rõ, tránh phụ thuộc exception SQL
+        FeeCategory existing = categoryDAO.findByName(name);
+        if (existing != null) {
+            FlashUtil.error(request, "Tên danh mục \"" + name + "\" đã tồn tại. Vui lòng chọn tên khác.");
+            response.sendRedirect(request.getContextPath() + "/fee?action=categories");
+            return;
+        }
+
         int id = categoryDAO.insert(FeeCategory.builder()
                 .name(name)
                 .description(description)
@@ -607,8 +626,14 @@ public class FeeController extends HttpServlet {
                 .build());
         if (id > 0) {
             FlashUtil.success(request, "Đã thêm danh mục \"" + name + "\".");
+        } else if (id == -2) {
+            FlashUtil.error(request, "Tên danh mục \"" + name + "\" đã tồn tại. Vui lòng chọn tên khác.");
+        } else if (id == -3) {
+            FlashUtil.error(request,
+                    "Thiếu bảng fee_categories. Chạy sql/fee-module.sql (hoặc schema.sql) trên SQL Server rồi thử lại.");
         } else {
-            FlashUtil.error(request, "Thêm danh mục thất bại (trùng tên?).");
+            FlashUtil.error(request,
+                    "Thêm danh mục thất bại. Kiểm tra kết nối DB / log server (FeeCategoryDAO.insert).");
         }
         response.sendRedirect(request.getContextPath() + "/fee?action=categories");
     }
