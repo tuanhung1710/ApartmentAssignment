@@ -119,6 +119,7 @@ CREATE TABLE apartments (
 GO
 
 CREATE INDEX IX_apartments_status ON apartments(status);
+CREATE INDEX IX_apartments_occupancy ON apartments(occupancy_type);
 CREATE INDEX IX_apartments_floor ON apartments(floor_number);
 CREATE INDEX IX_apartments_building_id ON apartments(building_id);
 GO

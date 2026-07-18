@@ -1,6 +1,6 @@
 /*
 ================================================================================
-  Seed data demo - ApartmentManagement UNIFIED (TV1+TV2)
+  Seed data demo - ApartmentManagement UNIFIED (TV1+TV2+fee)
   Chạy SAU schema.sql:
     1) database/schema.sql   → drop/create DB + bảng
     2) database/seed.sql     → data demo (file này)
@@ -372,6 +372,77 @@ VALUES
 GO
 
 
+
+/*--------------------------------------------------------------------------------
+  FEE MODULE demo (from main sql/fee-module.sql)
+  Categories -> fees -> scopes -> assignments -> payments
+  Depends on users + ACTIVE apartments already seeded.
+--------------------------------------------------------------------------------*/
+INSERT INTO fee_categories (name, description, is_active)
+VALUES
+(N'Phí quản lý', N'Phí quản lý vận hành chung cư', 1),
+(N'Phí gửi xe',  N'Phí gửi xe máy / ô tô', 1),
+(N'Phí bảo trì', N'Quỹ bảo trì định kỳ', 1),
+(N'Phí điện',    N'Phí điện công cộng / căn hộ', 1),
+(N'Phí nước',    N'Phí nước sinh hoạt', 1),
+(N'Phí dịch vụ', N'Các dịch vụ khác', 1);
+GO
+
+DECLARE @catMgmt INT = (SELECT category_id FROM fee_categories WHERE name = N'Phí quản lý');
+DECLARE @catPark INT = (SELECT category_id FROM fee_categories WHERE name = N'Phí gửi xe');
+DECLARE @catMain INT = (SELECT category_id FROM fee_categories WHERE name = N'Phí bảo trì');
+DECLARE @createdBy INT = (
+    SELECT TOP (1) user_id FROM users WHERE role IN (N'MANAGER', N'ADMIN') ORDER BY user_id
+);
+
+DECLARE @feeDraft INT, @feeAssigned INT, @feePublished INT;
+
+INSERT INTO fees (category_id, title, amount, fee_month, fee_year, fee_type, status, note, created_by)
+VALUES (@catMgmt, N'Phí quản lý tháng 8/2026', 500000, 8, 2026, N'MONTHLY', N'DRAFT',
+        N'Nháp — chưa gán căn', @createdBy);
+SET @feeDraft = SCOPE_IDENTITY();
+
+INSERT INTO fees (category_id, title, amount, fee_month, fee_year, fee_type, status, note, created_by)
+VALUES (@catPark, N'Phí gửi xe tháng 8/2026', 200000, 8, 2026, N'MONTHLY', N'ASSIGNED',
+        N'Đã gán, chưa công bố', @createdBy);
+SET @feeAssigned = SCOPE_IDENTITY();
+
+INSERT INTO fees (category_id, title, amount, fee_month, fee_year, fee_type, status, note, created_by)
+VALUES (@catMain, N'Phí bảo trì quý 3/2026', 300000, 7, 2026, N'ONE_TIME', N'PUBLISHED',
+        N'Tầng 5 — đã công bố', @createdBy);
+SET @feePublished = SCOPE_IDENTITY();
+
+INSERT INTO fee_scopes (fee_id, scope_type, building, floor_number, apartment_id)
+VALUES
+(@feeDraft,     N'BUILDING', N'A', NULL, NULL),
+(@feeAssigned,  N'ALL',      NULL, NULL, NULL),
+(@feePublished, N'FLOOR',    N'A', 5,    NULL);
+
+INSERT INTO fee_assignments (fee_id, apartment_id, amount, status, assigned_at, paid_at)
+SELECT @feeAssigned, apartment_id, 200000,
+       CASE WHEN apartment_id = (
+                SELECT MIN(apartment_id) FROM apartments WHERE status = N'ACTIVE'
+            )
+            THEN N'PAID' ELSE N'UNPAID' END,
+       SYSUTCDATETIME(),
+       CASE WHEN apartment_id = (
+                SELECT MIN(apartment_id) FROM apartments WHERE status = N'ACTIVE'
+            )
+            THEN SYSUTCDATETIME() ELSE NULL END
+FROM apartments
+WHERE status = N'ACTIVE';
+
+INSERT INTO fee_assignments (fee_id, apartment_id, amount, status)
+SELECT @feePublished, apartment_id, 300000, N'UNPAID'
+FROM apartments
+WHERE status = N'ACTIVE' AND building = N'A' AND floor_number = 5;
+
+INSERT INTO payments (assignment_id, amount, paid_at, note, recorded_by)
+SELECT assignment_id, amount, paid_at, N'Thu demo', @createdBy
+FROM fee_assignments
+WHERE status = N'PAID' AND paid_at IS NOT NULL;
+GO
+
 /*--------------------------------------------------------------------------------
   RECONCILE OCCUPANCY (TV2 rules) — safety net after seed inserts
 --------------------------------------------------------------------------------*/
@@ -422,6 +493,7 @@ GO
     inactive ~20% (formula %5=0) · draftFees=2
     pending=1 · processing=2 · staff_assigned=1 · staff_inprog=0 · staff_done7d≥1
     staff2_inprog=1 · resident1_open=1 · ann_published_30d≥3 · ann_unpublished=1
+    fee_categories=6 · fees=3 · fee_scopes=3
 --------------------------------------------------------------------------------*/
 PRINT N'========== VERIFY SEED (so với expected) ==========';
 
@@ -440,6 +512,11 @@ UNION ALL SELECT N'occ_rented', COUNT(*) FROM apartments WHERE occupancy_type = 
 UNION ALL SELECT N'occ_vacant', COUNT(*) FROM apartments WHERE occupancy_type = N'VACANT'
 UNION ALL SELECT N'occ_na', COUNT(*) FROM apartments WHERE occupancy_type = N'N/A'
 UNION ALL SELECT N'draft_fees', COUNT(*) FROM monthly_fees WHERE status = N'DRAFT'
+UNION ALL SELECT N'fee_categories', COUNT(*) FROM fee_categories
+UNION ALL SELECT N'fees', COUNT(*) FROM fees
+UNION ALL SELECT N'fee_scopes', COUNT(*) FROM fee_scopes
+UNION ALL SELECT N'fee_assignments', COUNT(*) FROM fee_assignments
+UNION ALL SELECT N'payments', COUNT(*) FROM payments
 UNION ALL SELECT N'req_pending', COUNT(*) FROM requests WHERE status = N'PENDING'
 UNION ALL SELECT N'req_processing', COUNT(*) FROM requests WHERE status IN (N'ASSIGNED', N'IN_PROGRESS')
 UNION ALL SELECT N'staff_assigned', COUNT(*) FROM requests WHERE assigned_to = 3 AND status = N'ASSIGNED'
@@ -473,10 +550,4 @@ PRINT N'--- Tài khoản demo (password: 123456) ---';
 PRINT N'admin | manager | staff | staff2 | resident1 | owner1 | tenant1 | resident2 | resident3 | resident_noapt';
 PRINT N'locked_user (is_active=0 — không login được)';
 PRINT N'--- Dashboard expected: xem comment đầu file seed.sql ---';
-GO
--- =============================================================================
--- FEE MODULE DEMO DATA
--- Chay them sql/fee-module.sql sau seed nay de tao/seed bang fees (idempotent).
--- schema.sql da gom CREATE TABLE fee_* cho cai sach.
--- =============================================================================
 GO
