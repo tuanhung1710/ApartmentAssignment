@@ -129,4 +129,10 @@ public final class AppConstants {
 
     /** Kích thước trang mặc định cho phân trang danh sách. */
     public static final int DEFAULT_PAGE_SIZE = 10;
+
+    /**
+     * Mật khẩu mặc định khi admin tạo user mới hoặc reset password (demo PRJ301).
+     * User nên đổi ngay sau khi đăng nhập lần đầu.
+     */
+    public static final String DEFAULT_PASSWORD = "123456";
 }

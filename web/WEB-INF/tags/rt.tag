@@ -11,6 +11,9 @@
     if ("history".equalsIgnoreCase(modeVal)) {
         text = apartmentmanagement.util.DateTimeUtil.formatHistory(v);
         title = apartmentmanagement.util.DateTimeUtil.formatHistoryTitle(v);
+    } else if ("full".equalsIgnoreCase(modeVal)) {
+        text = apartmentmanagement.util.DateTimeUtil.formatFull(v);
+        title = apartmentmanagement.util.DateTimeUtil.formatTitle(v);
     } else {
         text = apartmentmanagement.util.DateTimeUtil.formatRealtime(v);
         title = apartmentmanagement.util.DateTimeUtil.formatTitle(v);

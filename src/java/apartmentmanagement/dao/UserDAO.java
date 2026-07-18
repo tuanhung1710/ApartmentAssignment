@@ -539,4 +539,199 @@ public class UserDAO extends DBContext {
         }
         return 0;
     }
+
+    /**
+     * Kiểm tra username đã tồn tại (phục vụ form thêm user admin).
+     *
+     * @param username username cần kiểm tra
+     * @return {@code true} nếu đã có user với username đó
+     */
+    public boolean existsByUsername(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return false;
+        }
+        String sql = "SELECT 1 FROM users WHERE username = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                System.out.println("UserDAO.existsByUsername error: cannot connect to database");
+                return false;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, username.trim());
+            resultSet = statement.executeQuery();
+            return resultSet.next();
+        } catch (SQLException e) {
+            System.out.println("UserDAO.existsByUsername error: " + e.getMessage());
+            return false;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /**
+     * Cập nhật hồ sơ do admin: họ tên, role, department, trạng thái active.
+     * Email/phone giữ nguyên (user tự sửa qua profile).
+     *
+     * @param user user đã set userId + các field cần cập nhật
+     * @return {@code true} nếu cập nhật thành công
+     */
+    public boolean updateByAdmin(User user) {
+        String sql = "UPDATE users SET "
+                + "full_name = ?, "
+                + "role = ?, "
+                + "department = ?, "
+                + "is_active = ?, "
+                + "updated_at = SYSUTCDATETIME() "
+                + "WHERE user_id = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                System.out.println("UserDAO.updateByAdmin error: cannot connect to database");
+                return false;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, user.getFullName());
+            statement.setString(2, user.getRole());
+            statement.setString(3, user.getDepartment());
+            statement.setBoolean(4, user.getIsActive() == null || user.getIsActive());
+            statement.setInt(5, user.getUserId());
+            return statement.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("UserDAO.updateByAdmin error: " + e.getMessage());
+            return false;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /**
+     * Danh sách STAFF đang active (gán xử lý request, v.v.).
+     *
+     * @return list user role STAFF active, rỗng nếu lỗi
+     */
+    public List<User> findActiveStaff() {
+        List<User> list = new ArrayList<>();
+        String sql = "SELECT * FROM users "
+                + "WHERE role = N'STAFF' AND is_active = 1 "
+                + "ORDER BY full_name, user_id";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                System.out.println("UserDAO.findActiveStaff error: cannot connect to database");
+                return list;
+            }
+            statement = connection.prepareStatement(sql);
+            resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                list.add(getFromResultSet(resultSet));
+            }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.findActiveStaff error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return list;
+    }
+
+    /**
+     * Lọc user theo keyword (username/full_name), role, is_active + phân trang SQL Server.
+     *
+     * @param keyword  từ khóa; null/blank = bỏ qua
+     * @param role     role exact; null/blank = bỏ qua
+     * @param isActive trạng thái; null = bỏ qua
+     * @param page     trang 1-based
+     * @param pageSize số dòng mỗi trang
+     * @return danh sách user trang hiện tại
+     */
+    public List<User> findWithFilters(String keyword, String role, Boolean isActive,
+                                      int page, int pageSize) {
+        List<User> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT * FROM users WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+        appendUserFilters(sql, params, keyword, role, isActive);
+        sql.append("ORDER BY user_id ASC ");
+        sql.append("OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                System.out.println("UserDAO.findWithFilters error: cannot connect to database");
+                return list;
+            }
+            statement = connection.prepareStatement(sql.toString());
+            int idx = 1;
+            for (Object p : params) {
+                statement.setObject(idx++, p);
+            }
+            int safePage = Math.max(1, page);
+            int safeSize = Math.max(1, pageSize);
+            int offset = (safePage - 1) * safeSize;
+            statement.setInt(idx++, offset);
+            statement.setInt(idx, safeSize);
+            resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                list.add(getFromResultSet(resultSet));
+            }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.findWithFilters error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return list;
+    }
+
+    /**
+     * Đếm user theo cùng bộ lọc với {@link #findWithFilters}.
+     *
+     * @param keyword  từ khóa; null/blank = bỏ qua
+     * @param role     role exact; null/blank = bỏ qua
+     * @param isActive trạng thái; null = bỏ qua
+     * @return tổng số bản ghi khớp
+     */
+    public int countWithFilters(String keyword, String role, Boolean isActive) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM users WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+        appendUserFilters(sql, params, keyword, role, isActive);
+
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                System.out.println("UserDAO.countWithFilters error: cannot connect to database");
+                return 0;
+            }
+            statement = connection.prepareStatement(sql.toString());
+            int idx = 1;
+            for (Object p : params) {
+                statement.setObject(idx++, p);
+            }
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.countWithFilters error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return 0;
+    }
+
+    private void appendUserFilters(StringBuilder sql, List<Object> params,
+                                   String keyword, String role, Boolean isActive) {
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            sql.append("AND (username LIKE ? OR full_name LIKE ?) ");
+            String like = "%" + keyword.trim() + "%";
+            params.add(like);
+            params.add(like);
+        }
+        if (role != null && !role.trim().isEmpty()) {
+            sql.append("AND role = ? ");
+            params.add(role.trim());
+        }
+        if (isActive != null) {
+            sql.append("AND is_active = ? ");
+            params.add(isActive);
+        }
+    }
 }
