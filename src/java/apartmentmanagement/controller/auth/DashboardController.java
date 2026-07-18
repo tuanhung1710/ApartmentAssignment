@@ -14,7 +14,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 
-
+/**
+ * Dashboard theo vai trò sau khi đăng nhập.
+ * URL: {@code /dashboard} — nạp KPI khác nhau cho ADMIN / MANAGER / STAFF / RESIDENT.
+ */
 @WebServlet(name = "DashboardController", urlPatterns = {"/dashboard"})
 public class DashboardController extends HttpServlet {
 
@@ -22,6 +25,10 @@ public class DashboardController extends HttpServlet {
     private final DashboardStatsDAO statsDAO = new DashboardStatsDAO();
     private final BuildingDAO buildingDAO = new BuildingDAO();
 
+    /**
+     * Hiển thị dashboard; chưa login → redirect login.
+     * Thống kê được gán attribute theo role trước khi forward layout.
+     */
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -53,11 +60,12 @@ public class DashboardController extends HttpServlet {
 
         FlashUtil.moveToRequest(request);
         request.setAttribute("pageTitle", "Dashboard");
-        
+
         request.setAttribute("contentPage", "/WEB-INF/views/auth/dashboard.jsp");
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
+    /** KPI hệ thống: user, căn hộ, tòa nhà. */
     private void loadAdminStats(HttpServletRequest request) {
 
         request.setAttribute("totalUsers", userDAO.countAll());
@@ -67,39 +75,40 @@ public class DashboardController extends HttpServlet {
         request.setAttribute("totalBuildings", buildingDAO.countAll());
     }
 
+    /** KPI vận hành: yêu cầu chờ/đang xử lý, phí nháp. */
     private void loadManagerStats(HttpServletRequest request) {
-        
+
         request.setAttribute("pendingRequests",
                 statsDAO.countRequestsByStatus(AppConstants.STATUS_PENDING));
+        // ASSIGNED + IN_PROGRESS gộp thành "đang xử lý"
         int assigned = statsDAO.countRequestsByStatus(AppConstants.STATUS_ASSIGNED);
         int inProgress = statsDAO.countRequestsByStatus(AppConstants.STATUS_IN_PROGRESS);
         request.setAttribute("processingRequests", assigned + inProgress);
-        
+
         request.setAttribute("draftFees", statsDAO.countDraftFees());
     }
 
+    /** KPI công việc của staff hiện tại. */
     private void loadStaffStats(HttpServletRequest request, Integer userId) {
         int id = userId == null ? 0 : userId;
-        
+
         request.setAttribute("assignedJobs", statsDAO.countAssignedToStaff(id));
         request.setAttribute("inProgressJobs", statsDAO.countInProgressByStaff(id));
         request.setAttribute("completedWeek", statsDAO.countCompletedLast7DaysByStaff(id));
     }
 
+    /** KPI cư dân: căn hiện tại, phí gần nhất, yêu cầu mở, thông báo mới. */
     private void loadResidentStats(HttpServletRequest request, Integer userId) {
         int id = userId == null ? 0 : userId;
 
-        
         String aptCode = statsDAO.findCurrentApartmentCodeByUserId(id);
         request.setAttribute("myApartment", aptCode == null ? "Chưa gán căn hộ" : aptCode);
 
-        
         String feeSummary = statsDAO.findLatestFeeSummaryForUser(id);
         request.setAttribute("latestFee", feeSummary == null ? "Chưa có phí" : feeSummary);
 
-        
         request.setAttribute("openRequests", statsDAO.countOpenRequestsByUserId(id));
-        
+
         request.setAttribute("newAnnouncements", statsDAO.countRecentAnnouncements());
     }
 }

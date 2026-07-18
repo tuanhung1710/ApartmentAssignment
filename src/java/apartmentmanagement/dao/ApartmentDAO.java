@@ -11,9 +11,20 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-/** DAO căn hộ: CRUD, filter/sort/page, status, delete. */
+/**
+ * DAO căn hộ ({@code apartments}): CRUD, filter/sort/phân trang,
+ * đồng bộ occupancy và các helper kiểm tra cư dân / thành viên hộ.
+ */
 public class ApartmentDAO extends DBContext {
 
+    /**
+     * Map một dòng ResultSet sang {@link Apartment}.
+     * {@code member_count} và {@code building_id} là optional (tùy SELECT).
+     *
+     * @param rs ResultSet đang trỏ tới dòng hợp lệ
+     * @return entity đã map
+     * @throws SQLException nếu đọc cột bắt buộc lỗi
+     */
     public Apartment getFromResultSet(ResultSet rs) throws SQLException {
         Integer memberCount = null;
         try {
@@ -31,7 +42,7 @@ public class ApartmentDAO extends DBContext {
                 buildingId = ((Number) bid).intValue();
             }
         } catch (SQLException ignored) {
-            // DB cũ chưa có cột building_id
+            // cột building_id có thể chưa có trên schema cũ
         }
         return Apartment.builder()
                 .apartmentId(rs.getInt("apartment_id"))
@@ -49,6 +60,12 @@ public class ApartmentDAO extends DBContext {
                 .build();
     }
 
+    /**
+     * Kiểm tra mã căn đã tồn tại chưa.
+     *
+     * @param apartmentCode mã căn
+     * @return true nếu đã có
+     */
     public boolean existsByCode(String apartmentCode) {
         String sql = "SELECT 1 FROM apartments WHERE apartment_code = ?";
         try {
@@ -66,7 +83,11 @@ public class ApartmentDAO extends DBContext {
     }
 
     /**
-     * Số căn cùng tòa + tầng (fallback đếm).
+     * Số căn cùng tòa + tầng (fallback đếm khi không parse được mã).
+     *
+     * @param building    tên/mã tòa (cột building)
+     * @param floorNumber số tầng
+     * @return số căn; lỗi → 0
      */
     public int countByBuildingAndFloor(String building, int floorNumber) {
         String sql = "SELECT COUNT(*) FROM apartments WHERE building = ? AND floor_number = ?";
@@ -91,12 +112,12 @@ public class ApartmentDAO extends DBContext {
     }
 
     /**
-     * Unit tiếp theo cho mã căn format {TOKEN}-{FF}{UU} (vd. A-0203).
-     * Lấy max unit từ các mã có prefix {TOKEN}-{FF}, rồi +1.
+     * Unit tiếp theo cho mã căn format {@code {TOKEN}-{FF}{UU}} (vd. A-0203).
+     * Lấy max unit từ các mã có prefix {@code {TOKEN}-{FF}}, rồi +1.
      * Ví dụ: đã có A-0201, A-0202 → trả 3.
      *
      * @param codePrefix prefix không gồm unit, vd. "A-02"
-     * @return unit kế tiếp (>= 1); lỗi → 1
+     * @return unit kế tiếp (&gt;= 1); lỗi → 1
      */
     public int findNextUnitByCodePrefix(String codePrefix) {
         if (codePrefix == null || codePrefix.isEmpty()) {
@@ -136,7 +157,10 @@ public class ApartmentDAO extends DBContext {
     }
 
     /**
-     * @return generated apartment_id, 0 nếu insert OK nhưng không lấy được key, -1 nếu lỗi
+     * Thêm căn hộ mới. Ưu tiên INSERT kèm {@code building_id}; fallback schema cũ không có cột.
+     *
+     * @param apartment dữ liệu căn (code, building, floor, area, occupancy, status, notes)
+     * @return generated apartment_id; 0 nếu insert OK nhưng không lấy được key; -1 nếu lỗi
      */
     public int insert(Apartment apartment) {
         ensureOccupancyCheckConstraint();
@@ -240,6 +264,7 @@ public class ApartmentDAO extends DBContext {
         return null;
     }
 
+    /** Đóng ResultSet/PreparedStatement im lặng và gỡ reference instance. */
     private void closeQuietly(PreparedStatement ps, ResultSet rs) {
         try {
             if (rs != null) {
@@ -257,13 +282,28 @@ public class ApartmentDAO extends DBContext {
         this.resultSet = null;
     }
 
+    /**
+     * Lấy tối đa 1000 căn (sort tòa ASC) — tiện cho dropdown/legacy.
+     *
+     * @return danh sách căn
+     */
     public List<Apartment> findAll() {
         return findWithFilters(null, null, null, null, "building", "asc", 1, 1000);
     }
 
     /**
-     * UC-APT-04: list có keyword + filter + sort + phân trang (SQL Server OFFSET/FETCH).
-     * Kèm member_count = số household_members is_active=1.
+     * Danh sách căn có keyword + filter + sort + phân trang (SQL Server OFFSET/FETCH).
+     * Kèm {@code member_count} = số household_members {@code is_active=1}.
+     *
+     * @param keyword       tìm theo mã / tòa / notes (nullable)
+     * @param building      filter tòa (LIKE, nullable)
+     * @param status        ACTIVE | INACTIVE (nullable)
+     * @param occupancyType OWNED | RENTED | VACANT | N/A (nullable)
+     * @param sort          code|building|floor|area|occupancy|status|members
+     * @param dir           asc|desc
+     * @param page          trang (≥1)
+     * @param pageSize      kích thước trang
+     * @return danh sách căn trang hiện tại
      */
     public List<Apartment> findWithFilters(String keyword, String building, String status,
             String occupancyType, String sort, String dir, int page, int pageSize) {
@@ -305,6 +345,11 @@ public class ApartmentDAO extends DBContext {
         return list;
     }
 
+    /**
+     * Đếm căn theo cùng bộ filter với {@link #findWithFilters}.
+     *
+     * @return tổng số bản ghi khớp; lỗi → 0
+     */
     public int countWithFilters(String keyword, String building, String status, String occupancyType) {
         StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM apartments a WHERE 1=1");
         List<Object> params = new ArrayList<>();
@@ -331,11 +376,13 @@ public class ApartmentDAO extends DBContext {
         return 0;
     }
 
+    /** Gắn điều kiện filter list căn (không alias bảng). */
     private void appendFilters(StringBuilder sql, List<Object> params,
             String keyword, String building, String status, String occupancyType) {
         appendFiltersPrefixed(sql, params, keyword, building, status, occupancyType, null);
     }
 
+    /** Gắn điều kiện filter list căn; {@code alias} null = không prefix cột. */
     private void appendFiltersPrefixed(StringBuilder sql, List<Object> params,
             String keyword, String building, String status, String occupancyType, String alias) {
         String p = (alias == null || alias.isEmpty()) ? "" : alias + ".";
@@ -367,6 +414,7 @@ public class ApartmentDAO extends DBContext {
         return resolveSortColumnPrefixed(sort, null);
     }
 
+    /** Whitelist sort column (có thể kèm alias bảng). */
     private String resolveSortColumnPrefixed(String sort, String alias) {
         String p = (alias == null || alias.isEmpty()) ? "" : alias + ".";
         if (sort == null) {
@@ -392,10 +440,17 @@ public class ApartmentDAO extends DBContext {
         }
     }
 
+    /** Chuẩn hóa chiều sort: chỉ {@code DESC} khi dir=desc; còn lại {@code ASC}. */
     private String resolveSortDir(String dir) {
         return "desc".equalsIgnoreCase(dir) ? "DESC" : "ASC";
     }
 
+    /**
+     * Tìm căn theo primary key.
+     *
+     * @param apartmentId id căn
+     * @return căn hoặc null
+     */
     public Apartment findById(int apartmentId) {
         String sql = "SELECT * FROM apartments WHERE apartment_id = ?";
         try {
@@ -415,9 +470,10 @@ public class ApartmentDAO extends DBContext {
     }
 
     /**
-     * Cập nhật căn hộ – không đổi apartment_code / building / floor_number (UC-APT-02).
+     * Cập nhật căn hộ – không đổi apartment_code / building / floor_number.
      * UI hiển thị tách: Mã căn | Tòa | Tầng.
      *
+     * @param apartment entity (cần apartmentId + area/occupancy/status/notes)
      * @return true nếu có ít nhất 1 dòng được cập nhật
      */
     public boolean update(Apartment apartment) {
@@ -448,6 +504,11 @@ public class ApartmentDAO extends DBContext {
         }
     }
 
+    /**
+     * Tổng số căn trong hệ thống.
+     *
+     * @return count; lỗi → 0
+     */
     public int countAll() {
         String sql = "SELECT COUNT(*) FROM apartments";
         try {
@@ -466,7 +527,11 @@ public class ApartmentDAO extends DBContext {
     }
 
     /**
-     * UC-APT-03: đổi trạng thái ACTIVE / INACTIVE (disable / activate).
+     * Đổi trạng thái ACTIVE / INACTIVE (disable / activate).
+     *
+     * @param apartmentId id căn
+     * @param status      ACTIVE | INACTIVE
+     * @return true nếu cập nhật thành công
      */
     public boolean updateStatus(int apartmentId, String status) {
         String sql = "UPDATE apartments SET status = ?, updated_at = SYSUTCDATETIME() WHERE apartment_id = ?";
@@ -489,6 +554,11 @@ public class ApartmentDAO extends DBContext {
 
     /**
      * Đổi status + occupancy cùng lúc (activate / deactivate).
+     *
+     * @param apartmentId   id căn
+     * @param status        ACTIVE | INACTIVE
+     * @param occupancyType OWNED | RENTED | VACANT | N/A
+     * @return true nếu cập nhật thành công
      */
     public boolean updateStatusAndOccupancy(int apartmentId, String status, String occupancyType) {
         ensureOccupancyCheckConstraint();
@@ -513,7 +583,13 @@ public class ApartmentDAO extends DBContext {
         }
     }
 
-    /** Chỉ cập nhật occupancy_type (auto-sync). VACANT → xóa notes; INACTIVE giữ notes. */
+    /**
+     * Chỉ cập nhật occupancy_type (auto-sync). VACANT → xóa notes; INACTIVE giữ notes.
+     *
+     * @param apartmentId   id căn
+     * @param occupancyType giá trị occupancy mới
+     * @return true nếu cập nhật thành công
+     */
     public boolean updateOccupancy(int apartmentId, String occupancyType) {
         ensureOccupancyCheckConstraint();
         // VACANT = trống sẵn sàng: không giữ ghi chú demo / lý do ngừng
@@ -544,7 +620,12 @@ public class ApartmentDAO extends DBContext {
         }
     }
 
-    /** Số thành viên hộ active trên căn. */
+    /**
+     * Số thành viên hộ active trên căn.
+     *
+     * @param apartmentId id căn
+     * @return count; lỗi → 0
+     */
     public int countActiveMembers(int apartmentId) {
         String sql = "SELECT COUNT(*) FROM household_members WHERE apartment_id = ? AND is_active = 1";
         try {
@@ -566,6 +647,12 @@ public class ApartmentDAO extends DBContext {
         return 0;
     }
 
+    /**
+     * Có OWNER đang current trên căn hay không.
+     *
+     * @param apartmentId id căn
+     * @return true nếu có
+     */
     public boolean hasCurrentOwner(int apartmentId) {
         String sql = "SELECT 1 FROM apartment_residents "
                 + "WHERE apartment_id = ? AND is_current = 1 AND role_in_apartment = 'OWNER'";
@@ -586,6 +673,12 @@ public class ApartmentDAO extends DBContext {
         }
     }
 
+    /**
+     * Có TENANT_REP hoặc TENANT đang current trên căn hay không.
+     *
+     * @param apartmentId id căn
+     * @return true nếu có
+     */
     public boolean hasCurrentTenant(int apartmentId) {
         String sql = "SELECT 1 FROM apartment_residents "
                 + "WHERE apartment_id = ? AND is_current = 1 "
@@ -614,6 +707,8 @@ public class ApartmentDAO extends DBContext {
      * Đảm bảo CHECK occupancy cho phép OWNED|RENTED|VACANT|N/A.
      * Bảng cũ chỉ OWNED|RENTED → mọi UPDATE VACANT/N/A đều fail.
      * Thứ tự: DROP → (caller UPDATE data) → ADD; method này chỉ DROP (và ADD nếu đã safe).
+     *
+     * @return true nếu sẵn sàng cho UPDATE occupancy (kể cả khi ADD chưa gắn được)
      */
     public boolean ensureOccupancyCheckConstraint() {
         if (occupancyCheckReady) {
@@ -658,6 +753,7 @@ public class ApartmentDAO extends DBContext {
         }
     }
 
+    /** Gắn lại CHECK occupancy nếu đã DROP mà chưa ADD được. */
     private void reapplyOccupancyCheckIfMissing() {
         try {
             connection = getConnection();
@@ -685,13 +781,18 @@ public class ApartmentDAO extends DBContext {
 
     /**
      * Sửa hàng loạt occupancy (khi mở list):
-     * 1) INACTIVE → N/A
-     * 2) ACTIVE + TENANT/REP → RENTED
-     * 3) ACTIVE + OWNER only → OWNED
-     * 4) ACTIVE + TV hộ (không role) → OWNED
-     * 5) ACTIVE trống + occupancy lạ/N/A/null → VACANT
-     *    (KHÔNG ép OWNED/RENTED trống về VACANT — giữ loại hình lúc kích hoạt)
-     * 5b) VACANT còn notes → xóa notes
+     * <ol>
+     *   <li>INACTIVE → N/A</li>
+     *   <li>ACTIVE + TENANT/REP → RENTED</li>
+     *   <li>ACTIVE + OWNER only (không tenant) → OWNED
+     *       (không đụng căn đang RENTED — giữ layout gán thuê trống)</li>
+     *   <li>ACTIVE + TV hộ, không role → OWNED (giữ RENTED nếu đã chọn)</li>
+     *   <li>ACTIVE trống + occupancy lạ/N/A/null → VACANT
+     *       (KHÔNG ép OWNED/RENTED trống về VACANT)</li>
+     *   <li>VACANT còn notes → xóa notes</li>
+     * </ol>
+     *
+     * @return tổng số dòng đã UPDATE qua các bước
      */
     public int reconcileAllOccupancy() {
         ensureOccupancyCheckConstraint();
@@ -719,7 +820,7 @@ public class ApartmentDAO extends DBContext {
                     + "AND ISNULL(a.occupancy_type, N'') <> N'RENTED'");
 
             // 3) ACTIVE + owner only (không tenant) → OWNED
-            //    Không đụng căn đang RENTED (chủ nhà chờ gán thuê sau kích hoạt).
+            //    Không đụng căn đang RENTED (ô thuê trống — gán lại được).
             total += runUpdateSafe(connection,
                     "UPDATE a SET a.occupancy_type = N'OWNED', a.updated_at = SYSUTCDATETIME() "
                     + "FROM apartments a "
@@ -732,8 +833,7 @@ public class ApartmentDAO extends DBContext {
                     + "  AND r.role_in_apartment IN (N'TENANT_REP', N'TENANT')) "
                     + "AND ISNULL(a.occupancy_type, N'') NOT IN (N'OWNED', N'RENTED')");
 
-            // 4) ACTIVE + TV hộ, không role → OWNED
-            //    Giữ RENTED nếu đã chọn lúc kích hoạt (thêm TV trước, owner/thuê gán sau).
+            // 4) ACTIVE + TV hộ, không role → OWNED (giữ RENTED nếu đã chọn)
             total += runUpdateSafe(connection,
                     "UPDATE a SET a.occupancy_type = N'OWNED', a.updated_at = SYSUTCDATETIME() "
                     + "FROM apartments a "
@@ -781,7 +881,10 @@ public class ApartmentDAO extends DBContext {
     }
 
     /**
-     * Các unit (1..99) đã có mã đúng format {prefix}{UU} trên prefix tòa-tầng (vd. A-03).
+     * Các unit (1..99) đã có mã đúng format {@code {prefix}{UU}} trên prefix tòa-tầng (vd. A-03).
+     *
+     * @param codePrefix prefix mã căn (vd. "A-03")
+     * @return tập unit đã dùng
      */
     public java.util.Set<Integer> findExistingUnitsByCodePrefix(String codePrefix) {
         java.util.Set<Integer> units = new java.util.HashSet<>();
@@ -818,6 +921,9 @@ public class ApartmentDAO extends DBContext {
     /**
      * Đếm cư dân hiện tại gắn căn (bảng apartment_residents).
      * Nếu bảng chưa có / lỗi SQL → trả 0 (MVP an toàn, hard delete vẫn theo status).
+     *
+     * @param apartmentId id căn
+     * @return số cư dân current; lỗi → 0
      */
     public int countCurrentResidents(int apartmentId) {
         String sql = "SELECT COUNT(*) FROM apartment_residents WHERE apartment_id = ? AND is_current = 1";
@@ -843,6 +949,9 @@ public class ApartmentDAO extends DBContext {
 
     /**
      * Hard delete – chỉ gọi sau khi controller đã check BR (INACTIVE + không cư dân…).
+     *
+     * @param apartmentId id căn
+     * @return true nếu xóa thành công
      */
     public boolean deleteById(int apartmentId) {
         String sql = "DELETE FROM apartments WHERE apartment_id = ?";

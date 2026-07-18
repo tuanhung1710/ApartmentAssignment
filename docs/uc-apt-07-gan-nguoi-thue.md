@@ -47,6 +47,7 @@
 | **BR-T13** | Có tenant → sync occupancy `RENTED` (giữ OWNER nếu có = chủ nhà). |
 | **BR-T14** | Form gán: **User có sẵn** hoặc **Người mới** (tạo RESIDENT + gán). Gợi ý từ thành viên hộ. Pass mặc định `123456`. |
 | **BR-T15** | Người được gán thuê **phải xuất hiện** trong thành viên hộ: nếu chưa có (trùng họ tên) → auto thêm TV vai trò `Thành viên`; đã có → không thêm trùng. |
+| **BR-T16** | **Gỡ thuê** / **đổi thuê** / hết hạn (`end_date` &lt; hôm nay → đóng `is_current=0`): occupancy **giữ RENTED**; ô người thuê để trống — gán/đổi lại trực tiếp trên detail (không ép VACANT, không mất card thuê). |
 
 ### Đại diện thuê vs người thuê
 

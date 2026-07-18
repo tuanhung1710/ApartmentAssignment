@@ -8,8 +8,19 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * DAO tài khoản hệ thống ({@code users}): đăng nhập, hồ sơ, mật khẩu,
+ * CRUD cơ bản và helper tạo/tìm user khi gán owner/tenant.
+ */
 public class UserDAO extends DBContext {
 
+    /**
+     * Map một dòng ResultSet sang {@link User}.
+     *
+     * @param rs result set đang trỏ tới dòng hiện tại
+     * @return user đã map
+     * @throws SQLException nếu đọc cột lỗi
+     */
     public User getFromResultSet(ResultSet rs) throws SQLException {
         return User.builder()
                 .userId(rs.getInt("user_id"))
@@ -26,6 +37,13 @@ public class UserDAO extends DBContext {
                 .build();
     }
 
+    /**
+     * Xác thực đăng nhập: khớp username + password và tài khoản đang active.
+     *
+     * @param username tên đăng nhập
+     * @param password mật khẩu (so khớp trực tiếp như schema hiện tại)
+     * @return user nếu hợp lệ; {@code null} nếu sai hoặc lỗi
+     */
     public User login(String username, String password) {
         String sql = "SELECT * FROM users WHERE username = ? AND password = ? AND is_active = 1";
         try {
@@ -45,6 +63,12 @@ public class UserDAO extends DBContext {
         return null;
     }
 
+    /**
+     * Tìm user theo khóa chính.
+     *
+     * @param userId mã user
+     * @return user hoặc {@code null}
+     */
     public User findById(int userId) {
         String sql = "SELECT * FROM users WHERE user_id = ?";
         try {
@@ -63,6 +87,12 @@ public class UserDAO extends DBContext {
         return null;
     }
 
+    /**
+     * Tìm user theo username (không lọc trạng thái active).
+     *
+     * @param username tên đăng nhập
+     * @return user hoặc {@code null}
+     */
     public User findByUsername(String username) {
         String sql = "SELECT * FROM users WHERE username = ?";
         try {
@@ -81,7 +111,12 @@ public class UserDAO extends DBContext {
         return null;
     }
 
-    /** Forgot-password: user active theo username. */
+    /**
+     * Quên mật khẩu: lấy user active theo username.
+     *
+     * @param username tên đăng nhập
+     * @return user active hoặc {@code null}
+     */
     public User findActiveByUsername(String username) {
         String sql = "SELECT * FROM users WHERE username = ? AND is_active = 1";
         try {
@@ -100,7 +135,13 @@ public class UserDAO extends DBContext {
         return null;
     }
 
-    /** Forgot-password: khớp username + email (không phân biệt hoa thường). */
+    /**
+     * Quên mật khẩu: khớp username + email (không phân biệt hoa thường).
+     *
+     * @param username tên đăng nhập
+     * @param email    email xác minh
+     * @return user active khớp hoặc {@code null}
+     */
     public User findActiveByUsernameAndEmail(String username, String email) {
         String sql = "SELECT * FROM users WHERE username = ? AND is_active = 1 "
                 + "AND email IS NOT NULL AND LOWER(email) = LOWER(?)";
@@ -121,7 +162,13 @@ public class UserDAO extends DBContext {
         return null;
     }
 
-    /** Forgot-password: khớp username + SĐT. */
+    /**
+     * Quên mật khẩu: khớp username + số điện thoại.
+     *
+     * @param username tên đăng nhập
+     * @param phone    SĐT xác minh
+     * @return user active khớp hoặc {@code null}
+     */
     public User findActiveByUsernameAndPhone(String username, String phone) {
         String sql = "SELECT * FROM users WHERE username = ? AND is_active = 1 "
                 + "AND phone IS NOT NULL AND phone = ?";
@@ -142,8 +189,15 @@ public class UserDAO extends DBContext {
         return null;
     }
 
+    /**
+     * Cập nhật hồ sơ (họ tên, SĐT; email tùy chọn).
+     * Nếu {@code email == null} thì không đụng cột email — AuthenController TV1
+     * chỉ gửi fullName+phone, tránh xóa email cũ.
+     *
+     * @param user user mang userId và các field cần cập nhật
+     * @return {@code true} nếu cập nhật thành công
+     */
     public boolean updateProfile(User user) {
-        // email optional: AuthenController TV1 chỉ gửi fullName+phone → không xóa email cũ
         String sql = user.getEmail() != null
                 ? "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?"
                 : "UPDATE users SET full_name = ?, phone = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
@@ -156,6 +210,7 @@ public class UserDAO extends DBContext {
                 statement.setString(3, user.getPhone());
                 statement.setInt(4, user.getUserId());
             } else {
+                // Không ghi đè email khi caller không truyền
                 statement.setString(1, user.getFullName());
                 statement.setString(2, user.getPhone());
                 statement.setInt(3, user.getUserId());
@@ -169,6 +224,13 @@ public class UserDAO extends DBContext {
         }
     }
 
+    /**
+     * Kiểm tra mật khẩu hiện tại của user (đổi mật khẩu / xác minh).
+     *
+     * @param userId      mã user
+     * @param oldPassword mật khẩu cần đối chiếu
+     * @return {@code true} nếu khớp
+     */
     public boolean checkPassword(int userId, String oldPassword) {
         String sql = "SELECT user_id FROM users WHERE user_id = ? AND password = ?";
         try {
@@ -186,6 +248,13 @@ public class UserDAO extends DBContext {
         }
     }
 
+    /**
+     * Đổi mật khẩu theo userId.
+     *
+     * @param userId      mã user
+     * @param newPassword mật khẩu mới
+     * @return {@code true} nếu cập nhật thành công
+     */
     public boolean changePassword(int userId, String newPassword) {
         String sql = "UPDATE users SET password = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
         try {
@@ -202,11 +271,22 @@ public class UserDAO extends DBContext {
         }
     }
 
-    /** Alias cho AuthenController forgot-reset. */
+    /**
+     * Alias {@link #changePassword(int, String)} cho flow forgot-reset (AuthenController).
+     *
+     * @param userId      mã user
+     * @param newPassword mật khẩu mới
+     * @return {@code true} nếu cập nhật thành công
+     */
     public boolean updatePassword(int userId, String newPassword) {
         return changePassword(userId, newPassword);
     }
 
+    /**
+     * Lấy toàn bộ user, sắp theo user_id.
+     *
+     * @return danh sách user (rỗng nếu lỗi)
+     */
     public List<User> findAll() {
         List<User> list = new ArrayList<>();
         String sql = "SELECT * FROM users ORDER BY user_id";
@@ -226,8 +306,10 @@ public class UserDAO extends DBContext {
     }
 
     /**
-     * User đang active — dùng dropdown gán owner/tenant (UC-APT-06).
-     * Ưu tiên RESIDENT trước, sau đó role khác.
+     * User đang active — nguồn dropdown gán owner/tenant.
+     * Ưu tiên role RESIDENT, sau đó role khác; sắp full_name, username.
+     *
+     * @return danh sách user active (rỗng nếu lỗi / không có kết nối)
      */
     public List<User> findActiveUsers() {
         List<User> list = new ArrayList<>();
@@ -252,8 +334,12 @@ public class UserDAO extends DBContext {
     }
 
     /**
-     * Tìm user active theo họ tên (không phân biệt hoa thường, trim).
+     * Tìm một user active theo họ tên (không phân biệt hoa thường, trim).
      * Dùng khi gán owner/thuê từ thành viên hộ đã có sẵn.
+     * Ưu tiên RESIDENT nếu trùng tên nhiều người.
+     *
+     * @param fullName họ tên cần khớp
+     * @return user active đầu tiên khớp hoặc {@code null}
      */
     public User findActiveByFullName(String fullName) {
         if (fullName == null || fullName.trim().isEmpty()) {
@@ -281,6 +367,12 @@ public class UserDAO extends DBContext {
         return null;
     }
 
+    /**
+     * Thêm user mới; trả về identity vừa sinh.
+     *
+     * @param user dữ liệu insert ({@code isActive == null} → mặc định true)
+     * @return userId mới; {@code 0} nếu insert OK nhưng không lấy được key; {@code -1} nếu lỗi
+     */
     public int insert(User user) {
         String sql = "INSERT INTO users (username, password, full_name, email, phone, role, department, is_active) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -294,6 +386,7 @@ public class UserDAO extends DBContext {
             statement.setString(5, user.getPhone());
             statement.setString(6, user.getRole());
             statement.setString(7, user.getDepartment());
+            // null isActive → coi như active khi tạo mới
             statement.setBoolean(8, user.getIsActive() == null || user.getIsActive());
             int affected = statement.executeUpdate();
             if (affected > 0) {
@@ -313,8 +406,13 @@ public class UserDAO extends DBContext {
 
     /**
      * Tạo nhanh user RESIDENT active (gán owner/tenant người mới).
-     * username unique; password mặc định 123456 (demo PRJ301).
-     * @return userId mới, hoặc -1 nếu lỗi / trùng username
+     * Sinh username unique từ hint/fullName; password mặc định {@code 123456} (demo PRJ301).
+     *
+     * @param fullName     họ tên bắt buộc
+     * @param phone        SĐT (nullable)
+     * @param email        email (nullable)
+     * @param usernameHint gợi ý username; null/blank → slug từ fullName
+     * @return userId mới, hoặc {@code -1} nếu lỗi / trùng username hết suffix
      */
     public int createResidentQuick(String fullName, String phone, String email, String usernameHint) {
         if (fullName == null || fullName.trim().isEmpty()) {
@@ -328,6 +426,7 @@ public class UserDAO extends DBContext {
         if (base.length() > 40) {
             base = base.substring(0, 40);
         }
+        // Thêm suffix số cho đến khi username trống (giới hạn độ dài cột)
         String username = base;
         int suffix = 1;
         while (findByUsername(username) != null && suffix < 1000) {
@@ -350,6 +449,7 @@ public class UserDAO extends DBContext {
                 .build());
     }
 
+    /** Chuẩn hóa chuỗi thành username ASCII (bỏ dấu tiếng Việt, ký tự đặc biệt). */
     private String slugUsername(String raw) {
         if (raw == null) {
             return "";
@@ -371,6 +471,13 @@ public class UserDAO extends DBContext {
         return s;
     }
 
+    /**
+     * Bật/tắt tài khoản (is_active).
+     *
+     * @param userId   mã user
+     * @param isActive trạng thái mới
+     * @return {@code true} nếu cập nhật thành công
+     */
     public boolean updateStatus(int userId, boolean isActive) {
         String sql = "UPDATE users SET is_active = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
         try {
@@ -387,6 +494,11 @@ public class UserDAO extends DBContext {
         }
     }
 
+    /**
+     * Đếm tổng số user.
+     *
+     * @return số lượng; 0 nếu lỗi
+     */
     public int countAll() {
         String sql = "SELECT COUNT(*) FROM users";
         try {
@@ -404,6 +516,12 @@ public class UserDAO extends DBContext {
         return 0;
     }
 
+    /**
+     * Đếm user theo trạng thái active/inactive.
+     *
+     * @param active {@code true} = active, {@code false} = inactive
+     * @return số lượng; 0 nếu lỗi
+     */
     public int countByActive(boolean active) {
         String sql = "SELECT COUNT(*) FROM users WHERE is_active = ?";
         try {

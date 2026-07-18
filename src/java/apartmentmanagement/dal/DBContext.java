@@ -8,8 +8,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * JDBC connection base – hardcode connection (không dùng db.properties).
- * Đổi user/password/url theo máy local trước khi chạy.
+ * Lớp nền JDBC cung cấp kết nối SQL Server cho các DAO.
+ * <p>
+ * Cấu hình kết nối được hardcode (không đọc {@code db.properties}).
+ * Cần chỉnh {@code DB_URL}, {@code DB_USER}, {@code DB_PASSWORD} theo môi trường local trước khi chạy.
  */
 public class DBContext {
 
@@ -17,18 +19,23 @@ public class DBContext {
     protected PreparedStatement statement;
     protected ResultSet resultSet;
 
-    // TODO: đổi theo máy local
+    /** Chuỗi kết nối SQL Server – chỉnh host/port/databaseName theo máy local. */
     private static final String DB_URL =
             "jdbc:sqlserver://localhost:1433;databaseName=ApartmentManagement;encrypt=true;trustServerCertificate=true";
     private static final String DB_USER = "sa";
     private static final String DB_PASSWORD = "123";
 
+    /**
+     * Khởi tạo context; connection chỉ được mở khi gọi {@link #getConnection()}.
+     */
     public DBContext() {
-        // connection mở lazy qua getConnection()
     }
 
     /**
-     * Mở connection mới mỗi lần gọi (DAO tự close trong finally).
+     * Mở và trả về một {@link Connection} mới tới SQL Server.
+     * Caller (DAO) chịu trách nhiệm đóng connection trong {@code finally} hoặc qua {@link #closeResources()}.
+     *
+     * @return connection hợp lệ, hoặc {@code null} nếu thiếu driver / lỗi SQL
      */
     public Connection getConnection() {
         try {
@@ -45,7 +52,12 @@ public class DBContext {
         }
     }
 
-    /** Test nhanh kết nối (Auth / health). */
+    /**
+     * Kiểm tra nhanh khả năng kết nối DB (dùng cho Auth / health check).
+     * Tự đóng connection tạm sau khi kiểm tra.
+     *
+     * @return {@code true} nếu mở được connection và connection chưa đóng
+     */
     public boolean testConnection() {
         Connection c = null;
         try {
@@ -65,6 +77,11 @@ public class DBContext {
         }
     }
 
+    /**
+     * Đóng lần lượt {@link ResultSet}, {@link PreparedStatement} và {@link Connection}
+     * đang giữ trên instance; bỏ qua lỗi đóng từng tài nguyên để không che lỗi nghiệp vụ.
+     * Thứ tự đóng: ResultSet → Statement → Connection.
+     */
     public void closeResources() {
         try {
             if (resultSet != null) {
@@ -92,6 +109,11 @@ public class DBContext {
         }
     }
 
+    /**
+     * Smoke-test thủ công: mở connection, in tên database hiện tại, rồi đóng tài nguyên.
+     *
+     * @param args không sử dụng
+     */
     public static void main(String[] args) {
         DBContext db = new DBContext();
         Connection conn = db.getConnection();

@@ -6,6 +6,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Tòa nhà (building) trong master data chung cư.
+ * {@code apartmentCount} chỉ dùng hiển thị list/detail, không map cột DB.
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -22,6 +26,6 @@ public class Building {
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
-    /** Không map DB – dùng hiển thị list/detail (số căn thuộc tòa) */
+    /** Số căn thuộc tòa (display; không map cột DB) */
     private Integer apartmentCount;
 }

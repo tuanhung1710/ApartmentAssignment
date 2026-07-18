@@ -7,6 +7,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Căn hộ trong hệ thống quản lý chung cư.
+ * Một số trường (memberCount) chỉ phục vụ hiển thị, không map cột DB.
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -14,9 +18,9 @@ import lombok.NoArgsConstructor;
 public class Apartment {
     private Integer apartmentId;
     private String apartmentCode;
-    /** FK buildings.building_id — optional (null nếu tòa chưa có trong master) */
+    /** FK buildings.building_id — null nếu tòa chưa có trong master */
     private Integer buildingId;
-    /** Mã tòa denormalized (A/B/…) — filter + generate code TV2 */
+    /** Mã tòa denormalized (A/B/…) — dùng filter và generate code TV2 */
     private String building;
     private Integer floorNumber;
     private BigDecimal areaM2;

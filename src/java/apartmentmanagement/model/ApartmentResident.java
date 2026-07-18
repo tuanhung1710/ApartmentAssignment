@@ -7,6 +7,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Liên kết user với căn hộ theo vai trò (chủ hộ / đại diện thuê).
+ * Các field username, fullName, apartmentCode chỉ phục vụ hiển thị sau JOIN.
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -22,7 +26,7 @@ public class ApartmentResident {
     private Date endDate;
     private Timestamp createdAt;
 
-    // display helpers (JOIN, không phải nested object entity)
+    /** Display helpers (JOIN) — không phải nested entity */
     private String username;
     private String fullName;
     private String apartmentCode;

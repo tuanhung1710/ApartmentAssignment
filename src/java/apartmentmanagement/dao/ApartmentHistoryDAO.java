@@ -9,16 +9,31 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Lịch sử thao tác căn hộ (apartment_history). */
+/**
+ * DAO lịch sử thao tác căn hộ ({@code apartment_history}):
+ * đảm bảo bảng tồn tại, ghi log và đọc timeline theo căn.
+ */
 public class ApartmentHistoryDAO extends DBContext {
 
+    /** Thông báo lỗi SQL gần nhất (cho controller hiển thị). */
     private String lastError;
+    /** Cache: đã chạy ensureTable thành công trong JVM hiện tại. */
     private static volatile boolean tableEnsured = false;
 
+    /**
+     * @return lỗi gần nhất, hoặc null nếu chưa có
+     */
     public String getLastError() {
         return lastError;
     }
 
+    /**
+     * Map một dòng ResultSet sang {@link ApartmentHistory}.
+     *
+     * @param rs ResultSet đang trỏ tới dòng hợp lệ
+     * @return entity đã map
+     * @throws SQLException nếu đọc cột lỗi
+     */
     public ApartmentHistory getFromResultSet(ResultSet rs) throws SQLException {
         return ApartmentHistory.builder()
                 .historyId(rs.getInt("history_id"))
@@ -33,7 +48,12 @@ public class ApartmentHistoryDAO extends DBContext {
                 .build();
     }
 
-    /** Tạo bảng nếu chưa có (tránh quên chạy SQL). */
+    /**
+     * Tạo bảng {@code apartment_history} nếu chưa có (tránh quên chạy SQL migrate).
+     * Chỉ chạy DDL một lần mỗi JVM khi thành công.
+     *
+     * @return true nếu bảng sẵn sàng
+     */
     public boolean ensureTable() {
         if (tableEnsured) {
             return true;
@@ -69,6 +89,13 @@ public class ApartmentHistoryDAO extends DBContext {
         }
     }
 
+    /**
+     * Lấy lịch sử mới nhất của một căn (mới → cũ).
+     *
+     * @param apartmentId id căn
+     * @param limit       số bản ghi tối đa (&lt;1 → 50)
+     * @return danh sách history; rỗng nếu lỗi/không có
+     */
     public List<ApartmentHistory> findByApartmentId(int apartmentId, int limit) {
         List<ApartmentHistory> list = new ArrayList<>();
         if (limit < 1) {
@@ -98,7 +125,10 @@ public class ApartmentHistoryDAO extends DBContext {
     }
 
     /**
-     * @return id > 0 | 0 OK no key | -1 fail
+     * Ghi một bản ghi lịch sử thao tác căn.
+     *
+     * @param h entity (apartmentId, action bắt buộc; status/note/actor optional)
+     * @return id &gt; 0 nếu có generated key; 0 OK nhưng không lấy được key; -1 fail
      */
     public int insert(ApartmentHistory h) {
         lastError = null;
@@ -151,6 +181,7 @@ public class ApartmentHistoryDAO extends DBContext {
         }
     }
 
+    /** Bind NVARCHAR nullable (null/empty → SQL NULL). */
     private void setNullableString(int index, String value) throws SQLException {
         if (value == null || value.isEmpty()) {
             statement.setNull(index, Types.NVARCHAR);

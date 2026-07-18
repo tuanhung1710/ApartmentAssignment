@@ -7,6 +7,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Phí hàng tháng của một căn hộ (dịch vụ, nước, gửi xe) theo kỳ tháng/năm.
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -14,12 +17,13 @@ import lombok.NoArgsConstructor;
 public class MonthlyFee {
     private Integer feeId;
     private Integer apartmentId;
+    /** Tháng tính phí (1–12). */
     private Integer feeMonth;
     private Integer feeYear;
     private BigDecimal serviceFee;
     private BigDecimal waterFee;
     private BigDecimal parkingFee;
-    /** computed column */
+    /** Tổng phí (cột tính toán / derived). */
     private BigDecimal totalAmount;
     /** DRAFT | PUBLISHED | PAID | UNPAID */
     private String status;
@@ -30,6 +34,6 @@ public class MonthlyFee {
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
-    // display helpers
+    /** Mã căn hộ (JOIN hiển thị, không map cột gốc). */
     private String apartmentCode;
 }

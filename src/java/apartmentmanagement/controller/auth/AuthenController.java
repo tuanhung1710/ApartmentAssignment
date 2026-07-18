@@ -19,12 +19,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Xác thực, hồ sơ cá nhân và quên mật khẩu (OTP demo).
+ * <p>
+ * URL: {@code /auth} (home, login, logout, forgot-password, privacy, terms)
+ * và {@code /profile} (xem/sửa hồ sơ, đổi mật khẩu).
+ */
 @WebServlet(name = "AuthenController", urlPatterns = {"/auth", "/profile"})
 public class AuthenController extends HttpServlet {
 
+    /** OTP hết hạn sau 5 phút. */
     private static final int OTP_TTL_MS = 5 * 60 * 1000;
+    /** Số lần nhập OTP sai tối đa trước khi khóa gửi lại. */
     private static final int OTP_MAX_ATTEMPTS = 5;
     
+    /** Thời gian chờ trước khi được gửi OTP mới sau khi bị khóa. */
     private static final int OTP_RESEND_COOLDOWN_MS = 60 * 1000;
     private static final SecureRandom OTP_RANDOM = new SecureRandom();
 
@@ -32,6 +41,10 @@ public class AuthenController extends HttpServlet {
     private final DashboardStatsDAO statsDAO = new DashboardStatsDAO();
     private final PublicAnnouncementDAO publicAnnouncementDAO = new PublicAnnouncementDAO();
 
+    /**
+     * Điều hướng GET theo {@code action}.
+     * Mặc định: {@code /profile} → profile; {@code /auth} → home.
+     */
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -76,6 +89,10 @@ public class AuthenController extends HttpServlet {
         }
     }
 
+    /**
+     * Điều hướng POST: login, OTP quên mật khẩu, cập nhật hồ sơ, đổi mật khẩu.
+     * Thiếu {@code action} → 400.
+     */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -110,6 +127,7 @@ public class AuthenController extends HttpServlet {
         }
     }
 
+    /** Trang chủ public; đã login → dashboard. */
     private void handleHome(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         if (getCurrentUser(request) != null) {
@@ -121,16 +139,19 @@ public class AuthenController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/auth/home.jsp").forward(request, response);
     }
 
+    /** Trang chính sách bảo mật (public). */
     private void handlePrivacy(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         request.getRequestDispatcher("/WEB-INF/views/auth/privacy.jsp").forward(request, response);
     }
 
+    /** Trang điều khoản sử dụng (public). */
     private void handleTerms(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         request.getRequestDispatcher("/WEB-INF/views/auth/terms.jsp").forward(request, response);
     }
 
+    /** Form đăng nhập; chặn cache để back-button không lộ form sau login. */
     private void handleLoginForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         // Đã login → không cho xem form login (URL gõ lại / back sau khi server revalidate)
@@ -142,6 +163,10 @@ public class AuthenController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/auth/login.jsp").forward(request, response);
     }
 
+    /**
+     * Xử lý đăng nhập: validate, DAO.login, set session (xóa password khỏi object).
+     * Phân biệt lỗi DB vs sai thông tin khi login fail.
+     */
     private void handleLogin(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         
@@ -183,6 +208,7 @@ public class AuthenController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/dashboard");
     }
 
+    /** Đăng xuất: invalidate session + xóa cookie JSESSIONID. */
     private void handleLogout(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         HttpSession session = request.getSession(false);
@@ -200,6 +226,7 @@ public class AuthenController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/auth?action=home");
     }
 
+    /** Xem hồ sơ; RESIDENT kèm mã căn hiện tại. */
     private void handleProfileView(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User sessionUser = requireUser(request, response);
@@ -224,6 +251,7 @@ public class AuthenController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
+    /** Form cập nhật họ tên / SĐT. */
     private void handleEditProfileForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User sessionUser = requireUser(request, response);
@@ -243,6 +271,10 @@ public class AuthenController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
+    /**
+     * Lưu hồ sơ (fullName bắt buộc, phone tùy chọn).
+     * Thành công → refresh {@code SESSION_USER}.
+     */
     private void handleUpdateProfile(HttpServletRequest request, HttpServletResponse response)
             throws IOException, ServletException {
         User sessionUser = requireUser(request, response);
@@ -287,6 +319,10 @@ public class AuthenController extends HttpServlet {
     }
 
     
+    /**
+     * Wizard quên mật khẩu (GET): step identify | otp | reset | done.
+     * Guard theo payload OTP trong session (gửi / verified / hết hạn).
+     */
     private void handleForgotPasswordForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         if (getCurrentUser(request) != null) {
@@ -339,6 +375,10 @@ public class AuthenController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp").forward(request, response);
     }
 
+    /**
+     * Gửi OTP demo sau khi xác minh username + email/SĐT đăng ký.
+     * Tôn trọng cooldown khóa gửi lại; OTP lưu session (không gửi SMS/email thật).
+     */
     private void handleForgotSendOtp(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         if (getCurrentUser(request) != null) {
@@ -429,6 +469,7 @@ public class AuthenController extends HttpServlet {
         session.setAttribute(AppConstants.SESSION_FORGOT_OTP, payload);
 
         
+        // Demo only: log OTP ra console (production sẽ gửi email/SMS)
         System.out.println("[ForgotPassword OTP demo] user=" + user.getUsername()
                 + " channel=" + channel + " otp=" + otp);
 
@@ -442,6 +483,10 @@ public class AuthenController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp").forward(request, response);
     }
 
+    /**
+     * Xác thực OTP: đếm attempts, vượt max → clear OTP + khóa resend cooldown.
+     * Thành công → đánh dấu verified, xóa mã khỏi session.
+     */
     private void handleForgotVerifyOtp(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         if (getCurrentUser(request) != null) {
@@ -506,6 +551,9 @@ public class AuthenController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp").forward(request, response);
     }
 
+    /**
+     * Đặt mật khẩu mới sau khi OTP verified; clear payload OTP khi thành công.
+     */
     private void handleForgotReset(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         if (getCurrentUser(request) != null) {
@@ -563,6 +611,7 @@ public class AuthenController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp").forward(request, response);
     }
 
+    /** Đọc payload OTP quên mật khẩu từ session (kiểu Map). */
     @SuppressWarnings("unchecked")
     private Map<String, Object> getForgotOtpPayload(HttpSession session) {
         if (session == null) {
@@ -575,12 +624,14 @@ public class AuthenController extends HttpServlet {
         return null;
     }
 
+    /** Xóa payload OTP khỏi session. */
     private void clearForgotOtp(HttpSession session) {
         if (session != null) {
             session.removeAttribute(AppConstants.SESSION_FORGOT_OTP);
         }
     }
 
+    /** Khóa gửi OTP mới đến hết cooldown. */
     private void lockOtpResend(HttpSession session) {
         if (session == null) {
             return;
@@ -589,6 +640,7 @@ public class AuthenController extends HttpServlet {
                 System.currentTimeMillis() + OTP_RESEND_COOLDOWN_MS);
     }
 
+    /** Gỡ khóa cooldown gửi OTP. */
     private void clearOtpCooldown(HttpSession session) {
         if (session != null) {
             session.removeAttribute(AppConstants.SESSION_FORGOT_OTP_LOCK);
@@ -612,6 +664,7 @@ public class AuthenController extends HttpServlet {
         return (int) Math.ceil(remainingMs / 1000.0);
     }
 
+    /** Gắn attribute UI khi đang trong cooldown OTP. */
     private void applyOtpCooldownView(HttpServletRequest request, HttpSession session) {
         int remaining = getOtpCooldownRemainingSeconds(session);
         if (remaining > 0) {
@@ -620,6 +673,7 @@ public class AuthenController extends HttpServlet {
         }
     }
 
+    /** {@code true} nếu payload thiếu expiresAt hoặc đã quá hạn. */
     private boolean isOtpExpired(Map<String, Object> payload) {
         Object exp = payload.get("expiresAt");
         if (!(exp instanceof Long)) {
@@ -628,6 +682,7 @@ public class AuthenController extends HttpServlet {
         return System.currentTimeMillis() > (Long) exp;
     }
 
+    /** Attribute hiển thị bước nhập OTP (contact mask + demo OTP nếu còn). */
     private void fillOtpViewAttributes(HttpServletRequest request, Map<String, Object> payload) {
         request.setAttribute("otpUsername", payload.get("username"));
         request.setAttribute("otpChannel", payload.get("channel"));
@@ -639,11 +694,13 @@ public class AuthenController extends HttpServlet {
         }
     }
 
+    /** Sinh OTP 6 chữ số (SecureRandom). */
     private String generateOtp6() {
         int n = OTP_RANDOM.nextInt(1_000_000);
         return String.format("%06d", n);
     }
 
+    /** Che email/SĐT khi hiển thị (vd. a***@x.com, ***1234). */
     private String maskContact(String channel, String contact) {
         if (contact == null || contact.isEmpty() || "null".equals(contact)) {
             return "***";
@@ -655,13 +712,14 @@ public class AuthenController extends HttpServlet {
             }
             return contact.charAt(0) + "***" + contact.substring(at);
         }
-        // phone
+        // SĐT: giữ 4 số cuối
         if (contact.length() <= 4) {
             return "****";
         }
         return "***" + contact.substring(contact.length() - 4);
     }
 
+    /** Form đổi mật khẩu (user đã login). */
     private void handleChangePasswordForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         if (requireUser(request, response) == null) {
@@ -673,6 +731,9 @@ public class AuthenController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
+    /**
+     * Đổi mật khẩu: xác minh mật khẩu cũ, min 6 ký tự, khớp confirm.
+     */
     private void handleChangePassword(HttpServletRequest request, HttpServletResponse response)
             throws IOException, ServletException {
         User sessionUser = requireUser(request, response);
@@ -720,6 +781,7 @@ public class AuthenController extends HttpServlet {
     }
 
 
+    /** User từ session, hoặc {@code null} nếu chưa login / sai kiểu. */
     private User getCurrentUser(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {
@@ -730,6 +792,9 @@ public class AuthenController extends HttpServlet {
     }
 
     
+    /**
+     * Bắt buộc đăng nhập; nếu thiếu thì redirect login và trả {@code null}.
+     */
     private User requireUser(HttpServletRequest request, HttpServletResponse response) throws IOException {
         User user = getCurrentUser(request);
         if (user == null) {
@@ -739,6 +804,9 @@ public class AuthenController extends HttpServlet {
     }
 
     
+    /**
+     * Chặn cache trang auth/login để trình duyệt không phục hồi form sau logout/login.
+     */
     private void preventLoginPageCache(HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0, private");
         response.setHeader("Pragma", "no-cache");
@@ -750,6 +818,7 @@ public class AuthenController extends HttpServlet {
     }
 
     
+    /** Kiểm tra email tối thiểu: có {@code @} và domain có dấu chấm. */
     private boolean isValidEmail(String email) {
         if (email == null) {
             return false;
@@ -760,6 +829,7 @@ public class AuthenController extends HttpServlet {
     }
 
     
+    /** SĐT 9–11 chữ số thuần. */
     private boolean isValidPhone(String phone) {
         if (phone == null) {
             return false;

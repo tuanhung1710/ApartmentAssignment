@@ -16,7 +16,7 @@ Tổng hợp rule từ UC-APT-01 … 10 + Permission Matrix.
 | BR-A03 | `occupancy_type` ∈ {OWNED, RENTED, **VACANT**, **N/A**}. |
 | BR-A03b | **INACTIVE** ⇔ occupancy **N/A** only. **ACTIVE** ⇔ OWNED \| RENTED \| VACANT (không N/A). |
 | BR-A03c | **VACANT** = ACTIVE, sẵn sàng, **chưa có cư dân/role**. **N/A** = chưa vận hành (INACTIVE). |
-| BR-A03d | **Auto-sync**: INACTIVE→N/A; ACTIVE+tenant→**RENTED**; ACTIVE+OWNER only→**OWNED**; ACTIVE+TV (no role)→OWNED. **ACTIVE trống**: giữ VACANT/OWNED/RENTED đã chọn lúc kích hoạt/sửa — **không** ép về VACANT. Chỉ gỡ owner/tenant/TV mới force VACANT nếu trống. |
+| BR-A03d | **Auto-sync**: INACTIVE→N/A; ACTIVE+tenant→**RENTED**; **ACTIVE đang RENTED** (kể cả gỡ hết chủ/thuê) → **giữ RENTED** (ô trống, gán/đổi lại được); ACTIVE+OWNER only→**OWNED**; ACTIVE+TV (no role)→OWNED (trừ đang RENTED). **ACTIVE trống** sau activate/sửa: giữ OWNED/RENTED/VACANT đã chọn. **Sau gỡ trên căn không RENTED**: trống hoàn toàn → force **VACANT**. |
 | BR-A03e | **OWNED (chủ ở)**: chỉ OWNER, **không** mục/gán người thuê. UI ẩn card thuê. |
 | BR-A03f | **RENTED (cho thuê)**: OWNER = chủ nhà (có thể có) + TENANT/REP. Gán tenant **không** gỡ owner. |
 | BR-A04 | `status` ∈ {ACTIVE, INACTIVE}; mặc định tạo = **INACTIVE**. |

@@ -16,15 +16,23 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * CRUD tòa nhà — TV1 master data.
- * URL: /building?action=list|create|edit|detail|save|deactivate|activate|delete
- * Role ghi: ADMIN, MANAGER · Role xem: ADMIN, MANAGER, STAFF
+ * Servlet CRUD tòa nhà (master data TV1).
+ * <p>
+ * URL: {@code /building?action=list|create|edit|detail|save|deactivate|activate|delete}
+ * <ul>
+ *   <li>Ghi: ADMIN, MANAGER</li>
+ *   <li>Xem: ADMIN, MANAGER, STAFF</li>
+ * </ul>
  */
 @WebServlet(name = "BuildingController", urlPatterns = {"/building"})
 public class BuildingController extends HttpServlet {
 
     private final BuildingDAO buildingDAO = new BuildingDAO();
 
+    /**
+     * Điều hướng GET theo {@code action} (mặc định {@code list}).
+     * Yêu cầu đăng nhập; action không hợp lệ → 404.
+     */
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -51,6 +59,10 @@ public class BuildingController extends HttpServlet {
         }
     }
 
+    /**
+     * Điều hướng POST theo {@code action} (mặc định {@code save}).
+     * Các thao tác ghi đều kiểm tra quyền ADMIN/MANAGER trong handler.
+     */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -74,8 +86,7 @@ public class BuildingController extends HttpServlet {
         }
     }
 
-    /* ===================== handlers ===================== */
-
+    /** Danh sách tòa nhà có lọc keyword/status và phân trang. */
     private void handleList(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String keyword = trim(request.getParameter("q"));
@@ -105,6 +116,7 @@ public class BuildingController extends HttpServlet {
         forward(request, response, "Quản lý tòa nhà", "/WEB-INF/views/admin/building-list.jsp");
     }
 
+    /** Form thêm tòa — chỉ ADMIN/MANAGER. */
     private void handleCreateForm(HttpServletRequest request, HttpServletResponse response, User user)
             throws ServletException, IOException {
         if (!canWrite(user)) {
@@ -117,6 +129,7 @@ public class BuildingController extends HttpServlet {
         forward(request, response, "Thêm tòa nhà", "/WEB-INF/views/admin/building-form.jsp");
     }
 
+    /** Form sửa tòa theo {@code id}. */
     private void handleEditForm(HttpServletRequest request, HttpServletResponse response, User user)
             throws ServletException, IOException {
         if (!canWrite(user)) {
@@ -141,6 +154,9 @@ public class BuildingController extends HttpServlet {
         forward(request, response, "Sửa tòa nhà", "/WEB-INF/views/admin/building-form.jsp");
     }
 
+    /**
+     * Chi tiết tòa kèm danh sách căn hộ thuộc tòa (lọc aptStatus/aptQ, phân trang).
+     */
     private void handleDetail(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         Integer id = parseId(request.getParameter("id"));
@@ -156,7 +172,7 @@ public class BuildingController extends HttpServlet {
             return;
         }
 
-        // Filter căn hộ thuộc tòa: status ACTIVE | INACTIVE | (blank = tất cả)
+        // Chỉ nhận ACTIVE | INACTIVE; giá trị khác → coi như tất cả
         String aptStatus = trim(request.getParameter("aptStatus"));
         if (aptStatus != null
                 && !AppConstants.STATUS_ACTIVE.equals(aptStatus)
@@ -197,6 +213,10 @@ public class BuildingController extends HttpServlet {
                 "/WEB-INF/views/admin/building-detail.jsp");
     }
 
+    /**
+     * Lưu tòa (insert hoặc update theo {@code buildingId}).
+     * Validate fail → re-render form; mã tòa chuẩn hóa UPPERCASE trước khi ghi DB.
+     */
     private void handleSave(HttpServletRequest request, HttpServletResponse response, User user)
             throws ServletException, IOException {
         if (!canWrite(user)) {
@@ -263,6 +283,7 @@ public class BuildingController extends HttpServlet {
         }
     }
 
+    /** Soft-delete: chuyển tòa sang INACTIVE. */
     private void handleDeactivate(HttpServletRequest request, HttpServletResponse response, User user)
             throws IOException {
         if (!canWrite(user)) {
@@ -280,6 +301,7 @@ public class BuildingController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/building?action=list");
     }
 
+    /** Kích hoạt lại tòa (ACTIVE). */
     private void handleActivate(HttpServletRequest request, HttpServletResponse response, User user)
             throws IOException {
         if (!canWrite(user)) {
@@ -297,6 +319,10 @@ public class BuildingController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/building?action=list");
     }
 
+    /**
+     * Xóa cứng tòa chỉ khi không còn căn hộ.
+     * Kết quả DAO: 1 = OK, -1 = còn căn, -2 = không tìm thấy.
+     */
     private void handleDelete(HttpServletRequest request, HttpServletResponse response, User user)
             throws IOException {
         if (!canWrite(user)) {
@@ -320,8 +346,13 @@ public class BuildingController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/building?action=list");
     }
 
-    /* ===================== validation / helpers ===================== */
-
+    /**
+     * Validate form tòa nhà.
+     *
+     * @param b      dữ liệu form
+     * @param isEdit true = bỏ qua chính id khi check trùng mã
+     * @return message lỗi, hoặc {@code null} nếu hợp lệ
+     */
     private String validate(Building b, boolean isEdit) {
         if (b.getBuildingCode() == null || b.getBuildingCode().isBlank()) {
             return "Mã tòa không được để trống.";
@@ -355,6 +386,7 @@ public class BuildingController extends HttpServlet {
         return null;
     }
 
+    /** User đăng nhập từ session, hoặc {@code null}. */
     private User currentUser(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {
@@ -363,6 +395,7 @@ public class BuildingController extends HttpServlet {
         return (User) session.getAttribute(AppConstants.SESSION_USER);
     }
 
+    /** Quyền ghi master data tòa nhà: ADMIN hoặc MANAGER. */
     private boolean canWrite(User user) {
         if (user == null || user.getRole() == null) {
             return false;

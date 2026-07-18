@@ -27,11 +27,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+
 /**
- * Module căn hộ (TV2).
- * UC-APT-01..09: CRUD căn · List · Detail · Owner · Tenant · TV (trên detail).
- * Không còn list TV global / export (UC-APT-10 đã gỡ).
- * Tuân thủ coding-standards.md (Jakarta, @WebServlet, action switch, DAO).
+ * Servlet quản lý căn hộ: CRUD, occupancy, gán owner/tenant, thành viên hộ.
+ * <p>
+ * URL: {@code /apartment?action=...} — role ghi ADMIN/MANAGER; xem list STAFF+;
+ * RESIDENT chỉ xem detail căn mình đang ở.
  */
 @WebServlet(name = "ApartmentController", urlPatterns = {"/apartment"})
 public class ApartmentController extends HttpServlet {
@@ -52,6 +53,9 @@ public class ApartmentController extends HttpServlet {
     private final ApartmentHistoryDAO apartmentHistoryDAO = new ApartmentHistoryDAO();
     private final UserDAO userDAO = new UserDAO();
 
+    /**
+     * Điều hướng GET theo {@code action} (mặc định {@code list}).
+     */
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -101,6 +105,9 @@ public class ApartmentController extends HttpServlet {
         }
     }
 
+    /**
+     * Điều hướng POST theo {@code action}; thiếu action → 400.
+     */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -156,8 +163,10 @@ public class ApartmentController extends HttpServlet {
         }
     }
 
+   
     /**
-     * UC-APT-04: danh sách + keyword + filter + sort + pagination.
+     * Danh sách căn hộ có lọc/sort/phân trang.
+     * Trước khi query: expire tenant quá hạn + reconcile occupancy toàn hệ thống.
      */
     private void handleList(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -170,8 +179,11 @@ public class ApartmentController extends HttpServlet {
             return;
         }
 
-        // Sửa occupancy lệch (INACTIVE→N/A, ACTIVE trống→VACANT, …).
-        // Tự mở CHECK VACANT/N/A nếu DB còn constraint cũ.
+        
+        int expired = apartmentResidentDAO.expirePastDueTenants();
+        if (expired > 0) {
+            System.out.println("handleList: expired past-due tenants=" + expired);
+        }
         int fixed = apartmentDAO.reconcileAllOccupancy();
         if (fixed > 0) {
             System.out.println("handleList: reconciled occupancy rows=" + fixed);
@@ -242,6 +254,7 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
+    /** Form thêm căn lẻ (mặc định INACTIVE + N/A). */
     private void handleCreateForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {  
     
@@ -270,6 +283,10 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
+    /**
+     * Tạo căn lẻ: force INACTIVE/N/A, sinh mã theo tòa+tầng+unit,
+     * chặn khi tầng đã đủ UNITS_PER_FLOOR.
+     */
     private void handleCreate(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -285,7 +302,7 @@ public class ApartmentController extends HttpServlet {
         }
 
         Apartment form = bindForm(request, false);
-        // Mã căn do hệ thống sinh; create lẻ mặc định INACTIVE + N/A
+      
         form.setApartmentCode(null);
         form.setStatus(AppConstants.APT_STATUS_INACTIVE);
         form.setOccupancyType(AppConstants.OCCUPANCY_NA);
@@ -339,7 +356,8 @@ public class ApartmentController extends HttpServlet {
         }
     }
 
-    /** GET: form khởi tạo đủ unit 01–06 trên một tầng. */
+ 
+    /** Form khởi tạo đủ unit trên một tầng (mặc định 6 căn). */
     private void handleInitFloorForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -362,7 +380,10 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
-    /** POST: tạo các unit còn thiếu 01..UNITS_PER_FLOOR, status INACTIVE + N/A. */
+    
+    /**
+     * Khởi tạo các unit còn thiếu trên tầng (INACTIVE · N/A), bỏ qua unit đã có mã.
+     */
     private void handleInitFloor(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -437,8 +458,10 @@ public class ApartmentController extends HttpServlet {
                 + "&building=" + java.net.URLEncoder.encode(form.getBuilding(), java.nio.charset.StandardCharsets.UTF_8));
     }
 
+   
     /**
-     * UC-APT-05: chi tiết căn hộ — thông tin, chủ/thuê, thành viên, lịch sử, action theo role.
+     * Chi tiết căn: owner/tenant hiện tại, TV hộ, lịch sử.
+     * Expire tenant quá hạn trước khi load; RESIDENT chỉ xem căn mình.
      */
     private void handleDetail(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -453,6 +476,9 @@ public class ApartmentController extends HttpServlet {
             response.sendRedirect(request.getContextPath() + "/apartment?action=list");
             return;
         }
+
+      
+        apartmentResidentDAO.expirePastDueTenants();
 
         Apartment apartment = apartmentDAO.findById(id);
         if (apartment == null) {
@@ -489,8 +515,10 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
+    
     /**
-     * UC-APT-06: form gán / đổi chủ sở hữu.
+     * Form gán/đổi chủ sở hữu (hoặc chủ nhà khi RENTED).
+     * RENTED: không cho chọn từ thành viên hộ (landlord ≠ người ở).
      */
     private void handleAssignOwnerForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -525,7 +553,7 @@ public class ApartmentController extends HttpServlet {
             response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + apartmentId);
             return;
         }
-        // VACANT: phải đổi loại hình → OWNED (hoặc RENTED nếu gán chủ nhà) trước khi gán
+      
         String blockOwner = getAssignOwnerBlockReason(apartment);
         if (blockOwner != null) {
             FlashUtil.error(request, blockOwner);
@@ -560,9 +588,10 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
+    
     /**
-     * UC-APT-06: submit gán / đổi owner.
-     * BR: tối đa 1 owner hiện tại; owner cũ is_current=0 + end_date; owner mới insert current.
+     * Gán/đổi OWNER: end owner cũ nếu đổi; dọn tenant sót khi không còn thuê.
+     * OWNED → sync TV "Chủ hộ"; RENTED → landlord không vào TV hộ.
      */
     private void handleAssignOwner(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -684,7 +713,7 @@ public class ApartmentController extends HttpServlet {
                 }
             }
         } else {
-            // existing (search user) — hoặc household fallback khi OWNED gửi memberId
+          
             if (userId == null && memberId != null && !isRented) {
                 personSource = "household";
                 HouseholdMember hm = householdMemberDAO.findById(memberId);
@@ -864,7 +893,7 @@ public class ApartmentController extends HttpServlet {
             okMsg += " Chủ nhà (landlord) không vào thành viên hộ.";
         }
         if (memberSync == -3) {
-            // landlord: không message TV
+            // RENTED landlord: không sync / không báo message thành viên hộ
         } else if (alreadyInHousehold || memberSync == 0) {
             okMsg += " \"" + ownerName + "\" đã có trong thành viên hộ — không thêm mới.";
         } else if (memberSync > 0) {
@@ -952,9 +981,13 @@ public class ApartmentController extends HttpServlet {
             okMsg += " (Cảnh báo: chưa ghi được lịch sử"
                     + (he != null && !he.isEmpty() ? " — " + he : "") + ")";
         }
-        // Gỡ owner: nếu không còn cư dân → VACANT
-        String synced = syncOccupancyFromResidents(apartmentId, true);
-        if (synced != null) {
+        // RENTED: gỡ chủ nhà → giữ RENTED (ô chủ nhà trống, gán lại).
+        // OWNED/khác trống → VACANT.
+        boolean wasRented = AppConstants.OCCUPANCY_RENTED.equals(apartment.getOccupancyType());
+        String synced = syncOccupancyFromResidents(apartmentId, !wasRented);
+        if (wasRented) {
+            okMsg += " Ô chủ nhà để trống — có thể gán lại.";
+        } else if (synced != null) {
             okMsg += " Loại hình → " + synced + ".";
         }
         FlashUtil.success(request, okMsg);
@@ -962,7 +995,7 @@ public class ApartmentController extends HttpServlet {
     }
 
     /**
-     * UC-APT-07: form gán người thuê / đại diện thuê.
+     * Form gán người thuê / đại diện thuê (căn ACTIVE, không bị chặn theo occupancy).
      */
     private void handleAssignTenantForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -1009,9 +1042,8 @@ public class ApartmentController extends HttpServlet {
     }
 
     /**
-     * UC-APT-07: submit gán TENANT_REP / TENANT.
-     * TENANT_REP: max 1 current — end old then insert.
-     * TENANT: cho phép nhiều current.
+     * Submit gán TENANT_REP / TENANT.
+     * TENANT_REP: tối đa 1 current (end cũ rồi insert); TENANT: cho phép nhiều current.
      */
     private void handleAssignTenant(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -1396,16 +1428,10 @@ public class ApartmentController extends HttpServlet {
             okMsg += " (Cảnh báo: chưa ghi được lịch sử"
                     + (he != null && !he.isEmpty() ? " — " + he : "") + ")";
         }
-        // Căn RENTED: gỡ thuê → giữ RENTED, ô thuê để trống gán lại.
+        // RENTED: gỡ thuê → giữ RENTED, ô thuê để trống — vẫn gán/đổi thuê được.
         // Căn khác: còn owner → OWNED; trống → VACANT.
         boolean wasRented = AppConstants.OCCUPANCY_RENTED.equals(apartment.getOccupancyType());
         String synced = syncOccupancyFromResidents(apartmentId, !wasRented);
-        if (wasRented && !apartmentDAO.hasCurrentTenant(apartmentId)
-                && !AppConstants.OCCUPANCY_RENTED.equals(synced)) {
-            if (apartmentDAO.updateOccupancy(apartmentId, AppConstants.OCCUPANCY_RENTED)) {
-                synced = AppConstants.OCCUPANCY_RENTED;
-            }
-        }
         if (wasRented) {
             okMsg += " Ô người thuê để trống — có thể gán lại.";
         } else if (synced != null) {
@@ -1448,9 +1474,7 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
-    /**
-     * UC-APT-08: form thêm thành viên sinh sống.
-     */
+    /** Form thêm thành viên hộ (căn đủ điều kiện occupancy). */
     private void handleAddMemberForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -1495,7 +1519,7 @@ public class ApartmentController extends HttpServlet {
     }
 
     /**
-     * UC-APT-08: submit thêm thành viên (fullName, relationship, CCCD, phone, DOB).
+     * Submit thêm thành viên hộ (fullName, relationship, CCCD, phone, DOB).
      */
     private void handleAddMember(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -1634,6 +1658,7 @@ public class ApartmentController extends HttpServlet {
     }
 
     
+    /** Form cập nhật thành viên hộ. */
     private void handleEditMemberForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -1686,6 +1711,7 @@ public class ApartmentController extends HttpServlet {
     }
 
     
+    /** Submit cập nhật thành viên hộ (validate CCCD trùng trừ chính mình). */
     private void handleEditMember(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User actor = requireUser(request, response);
@@ -1805,9 +1831,8 @@ public class ApartmentController extends HttpServlet {
 
     
     /**
-     * UC-APT-09: Xóa thành viên hộ.
-     * - Nếu TV = chủ sở hữu → gỡ OWNER.
-     * - Nếu TV = người thuê / đại diện thuê → chỉ gỡ đúng tên đó khỏi gán thuê (để trống).
+     * Xóa thành viên hộ.
+     * Nếu TV = chủ sở hữu → gỡ OWNER; nếu = người thuê/đại diện thuê → chỉ gỡ đúng người đó khỏi gán thuê.
      */
     private void handleRemoveMember(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -1903,19 +1928,13 @@ public class ApartmentController extends HttpServlet {
         audit(actor, "REMOVE_MEMBER", apartment, "ACTIVE", "DELETED", "SUCCESS",
                 "memberId=" + memberId + cascadeNote);
 
-        // Căn RENTED: gỡ tên thuê nhưng GIỮ layout RENTED (ô thuê để trống, gán lại).
+        // RENTED: gỡ tên thuê/chủ → giữ RENTED (ô trống, gán lại).
         // Căn khác: force empty → VACANT/OWNED theo cư dân còn lại.
         boolean wasRented = AppConstants.OCCUPANCY_RENTED.equals(apartment.getOccupancyType());
         String synced = syncOccupancyFromResidents(apartmentId, !wasRented);
-        if (wasRented && !apartmentDAO.hasCurrentTenant(apartmentId)
-                && !AppConstants.OCCUPANCY_RENTED.equals(synced)) {
-            if (apartmentDAO.updateOccupancy(apartmentId, AppConstants.OCCUPANCY_RENTED)) {
-                synced = AppConstants.OCCUPANCY_RENTED;
-            }
-        }
         String okMsg = buildRemoveMemberSuccessMessage(removedName, ownerRemoved, tenantRemoved);
-        if (wasRented && tenantRemoved) {
-            okMsg += " Ô người thuê để trống — có thể gán lại.";
+        if (wasRented && (tenantRemoved || ownerRemoved)) {
+            okMsg += " Phần gán để trống — có thể gán lại.";
         } else if (synced != null) {
             okMsg += " Loại hình → " + synced + ".";
         }
@@ -2032,6 +2051,7 @@ public class ApartmentController extends HttpServlet {
     }
 
     
+    /** Form sửa căn — chỉ area/notes (+ occupancy nếu ACTIVE). */
     private void handleEditForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -2070,6 +2090,11 @@ public class ApartmentController extends HttpServlet {
     }
 
    
+    /**
+     * Cập nhật căn: khóa mã/tòa/tầng/status từ existing;
+     * INACTIVE → occupancy N/A; ACTIVE cho chọn VACANT/OWNED/RENTED.
+     * Sau update chỉ nâng occupancy theo cư dân (không ép trống về VACANT).
+     */
     private void handleUpdate(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -2099,7 +2124,7 @@ public class ApartmentController extends HttpServlet {
         }
 
        
-        // Mã / tòa / tầng / status / occupancy: occupancy auto theo cư dân; form chỉ sửa area/notes (+ occupancy nếu ACTIVE trống)
+        // Khóa mã/tòa/tầng/status từ DB; form chỉ sửa area/notes (+ occupancy nếu ACTIVE)
         form.setApartmentCode(existing.getApartmentCode());
         form.setBuilding(existing.getBuilding());
         form.setFloorNumber(existing.getFloorNumber());
@@ -2108,7 +2133,7 @@ public class ApartmentController extends HttpServlet {
         if (AppConstants.APT_STATUS_INACTIVE.equals(existing.getStatus())) {
             form.setOccupancyType(AppConstants.OCCUPANCY_NA);
         } else {
-            // ACTIVE: user chọn VACANT / OWNED / RENTED trên form Sửa — giữ nguyên
+            // ACTIVE: giữ VACANT/OWNED/RENTED user chọn trên form Sửa
             if (AppConstants.OCCUPANCY_NA.equals(form.getOccupancyType())
                     || form.getOccupancyType() == null || form.getOccupancyType().isEmpty()) {
                 form.setOccupancyType(AppConstants.OCCUPANCY_VACANT);
@@ -2125,8 +2150,7 @@ public class ApartmentController extends HttpServlet {
         }
 
         if (apartmentDAO.update(form)) {
-            // Chỉ nâng occupancy theo cư dân thực tế (tenant→RENTED, owner→OWNED).
-            // Không ép căn trống OWNED/RENTED về VACANT — tôn trọng form Sửa.
+            // Chỉ nâng theo cư dân (tenant→RENTED, owner→OWNED); không ép OWNED/RENTED trống về VACANT
             String synced = syncOccupancyFromResidents(form.getApartmentId(), false);
             if (synced != null) {
                 form.setOccupancyType(synced);
@@ -2143,6 +2167,7 @@ public class ApartmentController extends HttpServlet {
     }
 
 
+    /** Vô hiệu hóa căn ACTIVE → INACTIVE + N/A (soft, không gỡ cư dân). */
     private void handleDeactivate(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         User user = requireUser(request, response);
@@ -2178,7 +2203,6 @@ public class ApartmentController extends HttpServlet {
         }
 
         int currentResidents = apartmentDAO.countCurrentResidents(id);
-        // Deactivate → INACTIVE + N/A
         if (apartmentDAO.updateStatusAndOccupancy(id,
                 AppConstants.APT_STATUS_INACTIVE, AppConstants.OCCUPANCY_NA)) {
             String note = currentResidents > 0
@@ -2198,7 +2222,7 @@ public class ApartmentController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/apartment?action=detail&id=" + id);
     }
 
-    /** GET: form kích hoạt — bắt buộc chọn occupancy OWNED/RENTED/VACANT. */
+    /** Form kích hoạt căn — bắt buộc chọn occupancy OWNED/RENTED/VACANT. */
     private void handleActivateForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -2239,7 +2263,7 @@ public class ApartmentController extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/common/layout.jsp").forward(request, response);
     }
 
-    /** POST: kích hoạt + chọn loại hình. */
+    /** Kích hoạt căn INACTIVE → ACTIVE kèm loại hình đã chọn. */
     private void handleActivate(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         User user = requireUser(request, response);
@@ -2313,6 +2337,7 @@ public class ApartmentController extends HttpServlet {
     }
 
    
+    /** Xóa cứng căn INACTIVE và không còn cư dân hiện tại. */
     private void handleDelete(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         User user = requireUser(request, response);
@@ -2370,6 +2395,7 @@ public class ApartmentController extends HttpServlet {
     }
 
     
+    /** Ghi audit trail ra console (user, action, apartment, from→to, result). */
     private void audit(User actor, String action, Apartment apt,
             String fromStatus, String toStatus, String result, String message) {
         System.out.println(String.format(
@@ -2389,6 +2415,9 @@ public class ApartmentController extends HttpServlet {
 
  
     
+    /**
+     * Ghi lịch sử căn hộ qua DAO; trả {@code false} nếu thiếu data hoặc insert fail.
+     */
     private boolean writeHistory(User actor, Apartment apt, String action,
             String fromStatus, String toStatus, String note) {
         if (apt == null || apt.getApartmentId() == null || action == null || action.isEmpty()) {
@@ -2421,6 +2450,7 @@ public class ApartmentController extends HttpServlet {
         }
     }
 
+    /** Re-render form create/edit kèm errors. */
     private void forwardForm(HttpServletRequest request, HttpServletResponse response,
             Apartment form, List<String> errors, String mode)
             throws ServletException, IOException {
@@ -2484,15 +2514,17 @@ public class ApartmentController extends HttpServlet {
                 .build();
     }
 
+    /** Validate tạo căn lẻ (building token bắt buộc để sinh mã). */
     private List<String> validateForCreate(Apartment form) {
-        // Create lẻ: đã force INACTIVE + N/A
         return validateBaseFields(form, true);
     }
 
+    /** Validate khởi tạo tầng. */
     private List<String> validateInitFloor(Apartment form) {
         return validateBaseFields(form, true);
     }
 
+    /** Validate update + ràng buộc occupancy theo status. */
     private List<String> validateForUpdate(Apartment form) {
         List<String> errors = validateBaseFields(form, false);
         String occupancy = form.getOccupancyType();
@@ -2542,12 +2574,14 @@ public class ApartmentController extends HttpServlet {
         return errors;
     }
 
+    /** OWNED / RENTED / VACANT. */
     private boolean isActiveOccupancy(String occupancy) {
         return AppConstants.OCCUPANCY_OWNED.equals(occupancy)
                 || AppConstants.OCCUPANCY_RENTED.equals(occupancy)
                 || AppConstants.OCCUPANCY_VACANT.equals(occupancy);
     }
 
+    /** Occupancy hợp lệ gồm cả N/A (INACTIVE). */
     private boolean isValidOccupancy(String occupancy) {
         return isActiveOccupancy(occupancy) || AppConstants.OCCUPANCY_NA.equals(occupancy);
     }
@@ -2637,14 +2671,16 @@ public class ApartmentController extends HttpServlet {
     }
 
     /**
-     * Tự đồng bộ occupancy theo cư dân thực tế.
+     * Tự đồng bộ occupancy theo cư dân thực tế (coding-standards).
      * - INACTIVE → N/A
      * - ACTIVE + TENANT/REP → RENTED
+     * - ACTIVE đang RENTED (kể cả gỡ hết thuê/chủ) → giữ RENTED
+     *   (detail vẫn hiện card Chủ nhà + Người thuê để gán/đổi)
      * - ACTIVE + OWNER only → OWNED
-     * - ACTIVE + TV hộ (không role) → OWNED
+     * - ACTIVE + TV hộ (không role) → OWNED (trừ đang RENTED → giữ RENTED)
      * - ACTIVE trống:
-     *   · forceEmptyToVacant=true (sau gỡ owner/tenant/TV) → VACANT
-     *   · false: giữ OWNED/RENTED đã chọn lúc kích hoạt; còn lại → VACANT
+     *   · forceEmptyToVacant=true (sau gỡ trên căn không RENTED) → VACANT
+     *   · false: giữ OWNED/RENTED đã chọn lúc kích hoạt/sửa; còn lại → VACANT
      */
     private String syncOccupancyFromResidents(int apartmentId) {
         return syncOccupancyFromResidents(apartmentId, false);
@@ -2663,25 +2699,16 @@ public class ApartmentController extends HttpServlet {
         } else if (apartmentDAO.hasCurrentTenant(apartmentId)) {
             // Có người thuê → RENTED (OWNER nếu có = chủ nhà)
             target = AppConstants.OCCUPANCY_RENTED;
-        } else if (AppConstants.OCCUPANCY_RENTED.equals(current)
-                && !apartmentDAO.hasCurrentTenant(apartmentId)) {
-            // Căn thuê (kích hoạt RENTED): gỡ hết thuê / xóa TV thuê → GIỮ RENTED
-            // để layout vẫn hiện ô người thuê trống, gán lại được.
+        } else if (AppConstants.OCCUPANCY_RENTED.equals(current)) {
+            // Giữ RENTED khi gỡ/đổi thuê — ô gán thuê vẫn hiện trên detail
             target = AppConstants.OCCUPANCY_RENTED;
         } else if (apartmentDAO.hasCurrentOwner(apartmentId)) {
-            // Chỉ có chủ nhà, chưa có thuê → OWNED (chủ ở)
             target = AppConstants.OCCUPANCY_OWNED;
         } else if (apartmentDAO.countActiveMembers(apartmentId) > 0) {
-            // Có TV hộ nhưng owner/thuê trống — không ép RENTED → OWNED
-            if (AppConstants.OCCUPANCY_RENTED.equals(current)) {
-                target = AppConstants.OCCUPANCY_RENTED;
-            } else {
-                target = AppConstants.OCCUPANCY_OWNED;
-            }
+            target = AppConstants.OCCUPANCY_OWNED;
         } else if (!forceEmptyToVacant
                 && (AppConstants.OCCUPANCY_OWNED.equals(current)
                 || AppConstants.OCCUPANCY_RENTED.equals(current))) {
-            // Giữ loại hình đã chọn lúc kích hoạt / sửa, dù chưa gán cư dân
             target = current;
         } else {
             target = AppConstants.OCCUPANCY_VACANT;
@@ -2764,6 +2791,7 @@ public class ApartmentController extends HttpServlet {
         return cleaned.length() > 5 ? cleaned.substring(0, 5) : cleaned;
     }
 
+    /** Parse id > 0; null/invalid → {@code null}. */
     private Integer parseId(String raw) {
         if (raw == null || raw.trim().isEmpty()) {
             return null;
@@ -2789,10 +2817,12 @@ public class ApartmentController extends HttpServlet {
         return false;
     }
 
+    /** Quyền ghi căn hộ: ADMIN hoặc MANAGER. */
     private boolean canManage(String role) {
         return AppConstants.ROLE_ADMIN.equals(role) || AppConstants.ROLE_MANAGER.equals(role);
     }
 
+    /** Quyền xem danh sách: ADMIN / MANAGER / STAFF. */
     private boolean canViewList(String role) {
         return AppConstants.ROLE_ADMIN.equals(role)
                 || AppConstants.ROLE_MANAGER.equals(role)
@@ -2800,6 +2830,9 @@ public class ApartmentController extends HttpServlet {
     }
 
     
+    /**
+     * Xem detail: staff+ luôn được; RESIDENT chỉ khi là cư dân hiện tại của căn.
+     */
     private boolean canViewDetail(User user, int apartmentId) {
         if (user == null || user.getRole() == null) {
             return false;
@@ -2813,6 +2846,7 @@ public class ApartmentController extends HttpServlet {
         return false;
     }
 
+    /** Bắt buộc login; thiếu → redirect login, trả {@code null}. */
     private User requireUser(HttpServletRequest request, HttpServletResponse response) throws IOException {
         HttpSession session = request.getSession(false);
         User user = session == null ? null : (User) session.getAttribute(AppConstants.SESSION_USER);

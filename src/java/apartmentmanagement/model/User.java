@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Tài khoản người dùng hệ thống (admin, quản lý, nhân viên, cư dân).
+ */
 @Data
 @Builder
 @NoArgsConstructor

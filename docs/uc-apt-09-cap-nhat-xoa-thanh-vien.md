@@ -41,6 +41,7 @@
 | **BR-U09** | Member không tồn tại → “Không tìm thấy thành viên.” |
 | **BR-U10** | **Audit Log:** Console + `apartment_history` `UPDATE_MEMBER` / `REMOVE_MEMBER`. |
 | **BR-U11** | Xóa TV là owner → cascade gỡ OWNER; là tenant/tenant rep → cascade gỡ đúng user đó; TV thường → chỉ household. |
+| **BR-U12** | Sau xóa TV (+ cascade): căn **RENTED** → giữ **RENTED**, phần gán chủ/thuê để trống gán lại; căn khác trống hoàn toàn → **VACANT**. |
 
 ### Update vs Remove
 

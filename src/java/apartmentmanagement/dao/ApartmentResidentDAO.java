@@ -10,12 +10,21 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Gán user vào căn: OWNER / TENANT_REP / TENANT. */
+/**
+ * DAO gán user vào căn ({@code apartment_residents}):
+ * vai trò OWNER / TENANT_REP / TENANT, đóng/gỡ role, hết hạn hợp đồng thuê.
+ * <p>
+ * Lưu ý UNIQUE {@code (apartment_id, user_id, role, is_current)}:
+ * trước khi flip {@code is_current} 1→0 phải xóa bản ghi lịch sử cùng key.
+ */
 public class ApartmentResidentDAO extends DBContext {
 
     /** Lỗi SQL gần nhất (để controller hiện message rõ). */
     private String lastError;
 
+    /**
+     * @return lỗi gần nhất, hoặc null
+     */
     public String getLastError() {
         return lastError;
     }
@@ -24,6 +33,13 @@ public class ApartmentResidentDAO extends DBContext {
         lastError = null;
     }
 
+    /**
+     * Map ResultSet sang {@link ApartmentResident} (join users nếu có username/full_name).
+     *
+     * @param rs ResultSet đang trỏ tới dòng hợp lệ
+     * @return entity đã map
+     * @throws SQLException nếu đọc cột bắt buộc lỗi
+     */
     public ApartmentResident getFromResultSet(ResultSet rs) throws SQLException {
         return ApartmentResident.builder()
                 .id(rs.getInt("id"))
@@ -40,6 +56,7 @@ public class ApartmentResidentDAO extends DBContext {
                 .build();
     }
 
+    /** Đọc cột optional (join) — thiếu cột → null, không ném lỗi. */
     private String safeGetString(ResultSet rs, String col) {
         try {
             return rs.getString(col);
@@ -48,6 +65,13 @@ public class ApartmentResidentDAO extends DBContext {
         }
     }
 
+    /**
+     * Danh sách cư dân current theo một hoặc nhiều role.
+     *
+     * @param apartmentId id căn
+     * @param roles       danh sách role (OWNER, TENANT_REP, TENANT…)
+     * @return list (rỗng nếu roles rỗng hoặc không có bản ghi)
+     */
     public List<ApartmentResident> findByApartmentAndRoles(int apartmentId, String... roles) {
         List<ApartmentResident> list = new ArrayList<>();
         if (roles == null || roles.length == 0) {
@@ -88,16 +112,35 @@ public class ApartmentResidentDAO extends DBContext {
         return list;
     }
 
+    /**
+     * OWNER đang current (bản ghi mới nhất nếu có nhiều).
+     *
+     * @param apartmentId id căn
+     * @return owner hoặc null
+     */
     public ApartmentResident findCurrentOwner(int apartmentId) {
         List<ApartmentResident> list = findByApartmentAndRoles(apartmentId, AppConstants.APT_ROLE_OWNER);
         return list.isEmpty() ? null : list.get(0);
     }
 
+    /**
+     * TENANT_REP đang current (bản ghi mới nhất nếu có nhiều).
+     *
+     * @param apartmentId id căn
+     * @return tenant rep hoặc null
+     */
     public ApartmentResident findCurrentTenantRep(int apartmentId) {
         List<ApartmentResident> list = findByApartmentAndRoles(apartmentId, AppConstants.APT_ROLE_TENANT_REP);
         return list.isEmpty() ? null : list.get(0);
     }
 
+    /**
+     * User có bất kỳ role current nào trên căn không.
+     *
+     * @param apartmentId id căn
+     * @param userId      id user
+     * @return true nếu đang là cư dân current
+     */
     public boolean isCurrentResident(int apartmentId, int userId) {
         String sql = "SELECT 1 FROM apartment_residents "
                 + "WHERE apartment_id = ? AND user_id = ? AND is_current = 1";
@@ -119,6 +162,14 @@ public class ApartmentResidentDAO extends DBContext {
         }
     }
 
+    /**
+     * User có đúng role current trên căn không.
+     *
+     * @param apartmentId     id căn
+     * @param userId          id user
+     * @param roleInApartment role cần kiểm tra
+     * @return true nếu khớp
+     */
     public boolean isCurrentWithRole(int apartmentId, int userId, String roleInApartment) {
         String sql = "SELECT 1 FROM apartment_residents "
                 + "WHERE apartment_id = ? AND user_id = ? AND role_in_apartment = ? AND is_current = 1";
@@ -141,18 +192,36 @@ public class ApartmentResidentDAO extends DBContext {
         }
     }
 
+    /**
+     * Đóng (is_current=0) mọi OWNER current, ghi end_date.
+     *
+     * @param apartmentId id căn
+     * @param endDate     ngày kết thúc
+     * @return số dòng cập nhật; 0 nếu không có; -1 lỗi
+     */
     public int endCurrentOwners(int apartmentId, Date endDate) {
         return endCurrentByRole(apartmentId, AppConstants.APT_ROLE_OWNER, endDate);
     }
 
+    /**
+     * Đóng (is_current=0) mọi TENANT_REP current, ghi end_date.
+     *
+     * @param apartmentId id căn
+     * @param endDate     ngày kết thúc
+     * @return số dòng cập nhật; 0 nếu không có; -1 lỗi
+     */
     public int endCurrentTenantReps(int apartmentId, Date endDate) {
         return endCurrentByRole(apartmentId, AppConstants.APT_ROLE_TENANT_REP, endDate);
     }
 
     /**
      * Gỡ role hiện tại an toàn với UNIQUE (apartment_id, user_id, role, is_current):
-     * - Xóa các bản ghi lịch sử cùng (căn, user, role, is_current=0) để tránh trùng key
-     * - Rồi UPDATE is_current 1 → 0
+     * <ol>
+     *   <li>Xóa các bản ghi lịch sử cùng (căn, user, role, is_current=0) để tránh trùng key</li>
+     *   <li>UPDATE is_current 1 → 0 + end_date</li>
+     * </ol>
+     *
+     * @return số dòng đóng; 0 nếu không có current; -1 lỗi
      */
     private int endCurrentByRole(int apartmentId, String role, Date endDate) {
         clearError();
@@ -222,12 +291,20 @@ public class ApartmentResidentDAO extends DBContext {
     /**
      * Gỡ hẳn OWNER hiện tại (DELETE) — dùng cho "Gỡ owner".
      * Không giữ is_current=0 nên không đụng UNIQUE (apt,user,role,0).
+     *
+     * @param apartmentId id căn
+     * @return số dòng xóa; -1 lỗi
      */
     public int deleteCurrentOwners(int apartmentId) {
         return deleteCurrentByRole(apartmentId, AppConstants.APT_ROLE_OWNER);
     }
 
-    /** Gỡ hẳn TENANT_REP + TENANT đang current. */
+    /**
+     * Gỡ hẳn TENANT_REP + TENANT đang current.
+     *
+     * @param apartmentId id căn
+     * @return số dòng xóa; -1 lỗi
+     */
     public int deleteCurrentTenants(int apartmentId) {
         clearError();
         String sql = "DELETE FROM apartment_residents "
@@ -253,6 +330,13 @@ public class ApartmentResidentDAO extends DBContext {
         }
     }
 
+    /**
+     * DELETE mọi bản ghi current theo role trên căn.
+     *
+     * @param apartmentId id căn
+     * @param role        role cần gỡ
+     * @return số dòng xóa; -1 lỗi
+     */
     public int deleteCurrentByRole(int apartmentId, String role) {
         clearError();
         String sql = "DELETE FROM apartment_residents "
@@ -276,7 +360,14 @@ public class ApartmentResidentDAO extends DBContext {
         }
     }
 
-    /** Gỡ hẳn 1 cư dân current theo user + role (cascade xóa TV). */
+    /**
+     * Gỡ hẳn 1 cư dân current theo user + role (cascade xóa TV hộ phía controller).
+     *
+     * @param apartmentId id căn
+     * @param userId      id user
+     * @param role        role cần gỡ
+     * @return số dòng xóa; 0 nếu role rỗng; -1 lỗi
+     */
     public int deleteCurrentByUserAndRole(int apartmentId, int userId, String role) {
         clearError();
         if (role == null || role.isEmpty()) {
@@ -304,15 +395,92 @@ public class ApartmentResidentDAO extends DBContext {
         }
     }
 
+    /**
+     * Đóng hợp đồng thuê đã hết hạn (TENANT_REP / TENANT):
+     * {@code is_current=1 AND end_date < hôm nay} → {@code is_current=0} (giữ end_date).
+     * Xóa lịch sử trùng key trước khi flip để tránh vi phạm UNIQUE.
+     *
+     * @return số bản ghi đóng; lỗi → -1
+     */
+    public int expirePastDueTenants() {
+        clearError();
+        // Xóa lịch sử trùng key trước khi flip is_current 1→0 (UQ_ar_apartment_user_role)
+        String deleteHistorySql
+                = "DELETE h FROM apartment_residents h "
+                + "INNER JOIN apartment_residents c "
+                + "  ON c.apartment_id = h.apartment_id AND c.user_id = h.user_id "
+                + " AND c.role_in_apartment = h.role_in_apartment "
+                + "WHERE h.is_current = 0 AND c.is_current = 1 "
+                + "  AND c.role_in_apartment IN (?, ?) "
+                + "  AND c.end_date IS NOT NULL AND c.end_date < CAST(SYSUTCDATETIME() AS DATE)";
+        String expireSql
+                = "UPDATE apartment_residents SET is_current = 0 "
+                + "WHERE is_current = 1 "
+                + "  AND role_in_apartment IN (?, ?) "
+                + "  AND end_date IS NOT NULL "
+                + "  AND end_date < CAST(SYSUTCDATETIME() AS DATE)";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                lastError = "Không kết nối được database.";
+                return -1;
+            }
+            statement = connection.prepareStatement(deleteHistorySql);
+            statement.setString(1, AppConstants.APT_ROLE_TENANT_REP);
+            statement.setString(2, AppConstants.APT_ROLE_TENANT);
+            statement.executeUpdate();
+            try {
+                statement.close();
+            } catch (SQLException ignored) {
+            }
+            statement = connection.prepareStatement(expireSql);
+            statement.setString(1, AppConstants.APT_ROLE_TENANT_REP);
+            statement.setString(2, AppConstants.APT_ROLE_TENANT);
+            int n = statement.executeUpdate();
+            if (n > 0) {
+                System.out.println("ApartmentResidentDAO.expirePastDueTenants: closed=" + n);
+            }
+            return n;
+        } catch (SQLException e) {
+            lastError = friendlySqlError(e);
+            System.out.println("ApartmentResidentDAO.expirePastDueTenants: " + e.getMessage());
+            return -1;
+        } finally {
+            closeResources();
+        }
+    }
+
+    /**
+     * Gán OWNER mới (is_current=1, không end_date).
+     *
+     * @param apartmentId id căn
+     * @param userId      id user
+     * @param startDate   ngày bắt đầu
+     * @return id bản ghi mới / id đã tồn tại; -1 lỗi
+     */
     public int insertOwner(int apartmentId, int userId, Date startDate) {
         return insertResident(apartmentId, userId, AppConstants.APT_ROLE_OWNER, startDate, null);
     }
 
+    /**
+     * Gán TENANT_REP hoặc TENANT (có thể có end_date hợp đồng).
+     *
+     * @param apartmentId     id căn
+     * @param userId          id user
+     * @param roleInApartment TENANT_REP | TENANT
+     * @param startDate       ngày bắt đầu
+     * @param endDate         ngày kết thúc (nullable)
+     * @return id bản ghi mới / id đã tồn tại; -1 lỗi
+     */
     public int insertTenant(int apartmentId, int userId, String roleInApartment,
             Date startDate, Date endDate) {
         return insertResident(apartmentId, userId, roleInApartment, startDate, endDate);
     }
 
+    /**
+     * Insert cư dân current. Nếu đã có cùng (căn,user,role,current) → trả id cũ.
+     * Xóa lịch sử is_current=0 cùng key trước insert để tránh conflict UNIQUE.
+     */
     private int insertResident(int apartmentId, int userId, String role,
             Date startDate, Date endDate) {
         clearError();
@@ -390,6 +558,7 @@ public class ApartmentResidentDAO extends DBContext {
         }
     }
 
+    /** Chuyển SQLException sang message thân thiện cho UI. */
     private String friendlySqlError(SQLException e) {
         String msg = e.getMessage() == null ? "" : e.getMessage();
         if (msg.contains("Invalid object name") && msg.toLowerCase().contains("apartment_residents")) {

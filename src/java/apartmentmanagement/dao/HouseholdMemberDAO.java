@@ -9,9 +9,19 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Thành viên hộ (household_members): CRUD + list filter + hard delete. */
+/**
+ * DAO thành viên hộ ({@code household_members}):
+ * CRUD, kiểm tra trùng CCCD/họ tên, soft/hard delete, sync từ owner/tenant.
+ */
 public class HouseholdMemberDAO extends DBContext {
 
+    /**
+     * Map ResultSet sang {@link HouseholdMember}.
+     *
+     * @param rs ResultSet đang trỏ tới dòng hợp lệ
+     * @return entity đã map
+     * @throws SQLException nếu đọc cột lỗi
+     */
     public HouseholdMember getFromResultSet(ResultSet rs) throws SQLException {
         return HouseholdMember.builder()
                 .memberId(rs.getInt("member_id"))
@@ -26,7 +36,12 @@ public class HouseholdMemberDAO extends DBContext {
                 .build();
     }
 
-    /** Chỉ thành viên đang active (hiển thị detail). */
+    /**
+     * Chỉ thành viên đang active (hiển thị detail căn).
+     *
+     * @param apartmentId id căn
+     * @return danh sách TV active, sort theo tên
+     */
     public List<HouseholdMember> findActiveByApartmentId(int apartmentId) {
         List<HouseholdMember> list = new ArrayList<>();
         String sql = "SELECT * FROM household_members WHERE apartment_id = ? AND is_active = 1 "
@@ -50,10 +65,22 @@ public class HouseholdMemberDAO extends DBContext {
         return list;
     }
 
+    /**
+     * Alias {@link #findActiveByApartmentId} — API cũ chỉ lấy TV active.
+     *
+     * @param apartmentId id căn
+     * @return danh sách TV active
+     */
     public List<HouseholdMember> findByApartmentId(int apartmentId) {
         return findActiveByApartmentId(apartmentId);
     }
 
+    /**
+     * Tìm thành viên theo primary key (kể cả inactive).
+     *
+     * @param memberId id thành viên
+     * @return entity hoặc null
+     */
     public HouseholdMember findById(int memberId) {
         String sql = "SELECT * FROM household_members WHERE member_id = ?";
         try {
@@ -75,10 +102,25 @@ public class HouseholdMemberDAO extends DBContext {
         return null;
     }
 
+    /**
+     * Đã có TV active cùng CCCD/CMND trên căn.
+     *
+     * @param apartmentId id căn
+     * @param idNumber    số giấy tờ
+     * @return true nếu trùng
+     */
     public boolean existsActiveIdNumber(int apartmentId, String idNumber) {
         return existsActiveIdNumberExceptId(apartmentId, idNumber, null);
     }
 
+    /**
+     * Kiểm tra trùng CCCD active, có thể loại trừ 1 member khi edit.
+     *
+     * @param apartmentId    id căn
+     * @param idNumber       số giấy tờ
+     * @param exceptMemberId id bỏ qua (nullable)
+     * @return true nếu trùng
+     */
     public boolean existsActiveIdNumberExceptId(int apartmentId, String idNumber, Integer exceptMemberId) {
         if (idNumber == null || idNumber.isEmpty()) {
             return false;
@@ -109,6 +151,12 @@ public class HouseholdMemberDAO extends DBContext {
         }
     }
 
+    /**
+     * Thêm thành viên hộ mới.
+     *
+     * @param m entity (apartmentId, fullName, relationship…); isActive null → true
+     * @return generated member_id; 0 nếu OK nhưng không lấy key; -1 lỗi
+     */
     public int insert(HouseholdMember m) {
         String sql = "INSERT INTO household_members "
                 + "(apartment_id, full_name, relationship, phone, id_number, date_of_birth, is_active) "
@@ -147,6 +195,13 @@ public class HouseholdMemberDAO extends DBContext {
         }
     }
 
+    /**
+     * Cập nhật thông tin TV (không đổi is_active).
+     * Điều kiện WHERE gồm cả apartment_id để tránh sửa nhầm căn.
+     *
+     * @param m entity (memberId + apartmentId bắt buộc)
+     * @return true nếu cập nhật thành công
+     */
     public boolean update(HouseholdMember m) {
         String sql = "UPDATE household_members SET full_name = ?, relationship = ?, phone = ?, "
                 + "id_number = ?, date_of_birth = ? WHERE member_id = ? AND apartment_id = ?";
@@ -176,7 +231,13 @@ public class HouseholdMemberDAO extends DBContext {
         }
     }
 
-    /** Soft delete (giữ row). */
+    /**
+     * Soft delete (giữ row, is_active=0).
+     *
+     * @param memberId    id thành viên
+     * @param apartmentId id căn (scope)
+     * @return true nếu cập nhật thành công
+     */
     public boolean softDelete(int memberId, int apartmentId) {
         String sql = "UPDATE household_members SET is_active = 0 "
                 + "WHERE member_id = ? AND apartment_id = ? AND is_active = 1";
@@ -197,7 +258,13 @@ public class HouseholdMemberDAO extends DBContext {
         }
     }
 
-    /** Hard delete — gỡ hẳn khỏi thành viên hộ. */
+    /**
+     * Hard delete — gỡ hẳn khỏi thành viên hộ.
+     *
+     * @param memberId    id thành viên
+     * @param apartmentId id căn (scope)
+     * @return true nếu xóa thành công
+     */
     public boolean hardDelete(int memberId, int apartmentId) {
         String sql = "DELETE FROM household_members WHERE member_id = ? AND apartment_id = ?";
         try {
@@ -217,7 +284,13 @@ public class HouseholdMemberDAO extends DBContext {
         }
     }
 
-    /** Xóa TV active theo quan hệ (vd. Chủ hộ khi gỡ owner). */
+    /**
+     * Xóa TV active theo quan hệ (vd. "Chủ hộ" khi gỡ owner).
+     *
+     * @param apartmentId  id căn
+     * @param relationship quan hệ cần xóa
+     * @return số dòng xóa; -1 lỗi
+     */
     public int hardDeleteByRelationship(int apartmentId, String relationship) {
         String sql = "DELETE FROM household_members WHERE apartment_id = ? AND relationship = ? AND is_active = 1";
         try {
@@ -237,7 +310,14 @@ public class HouseholdMemberDAO extends DBContext {
         }
     }
 
-    /** Xóa TV active khớp họ tên + quan hệ (đồng bộ khi gỡ owner/thuê). */
+    /**
+     * Xóa TV active khớp họ tên + quan hệ (đồng bộ khi gỡ owner/thuê).
+     *
+     * @param apartmentId  id căn
+     * @param fullName     họ tên
+     * @param relationship quan hệ
+     * @return số dòng xóa; 0 nếu tên rỗng; -1 lỗi
+     */
     public int hardDeleteByNameAndRelationship(int apartmentId, String fullName, String relationship) {
         if (fullName == null || fullName.trim().isEmpty()) {
             return 0;
@@ -264,6 +344,9 @@ public class HouseholdMemberDAO extends DBContext {
 
     /**
      * Soft-delete toàn bộ TV active của căn (khi đổi owner — clear nhân khẩu cũ).
+     *
+     * @param apartmentId id căn
+     * @return số dòng cập nhật; -1 lỗi
      */
     public int softDeleteAllActiveByApartment(int apartmentId) {
         String sql = "UPDATE household_members SET is_active = 0 "
@@ -286,6 +369,11 @@ public class HouseholdMemberDAO extends DBContext {
 
     /**
      * Đã có thành viên active trùng họ tên trên căn (không phân biệt quan hệ).
+     * So sánh không phân biệt hoa thường, trim khoảng trắng.
+     *
+     * @param apartmentId id căn
+     * @param fullName    họ tên
+     * @return true nếu trùng
      */
     public boolean existsActiveByFullName(int apartmentId, String fullName) {
         if (fullName == null || fullName.trim().isEmpty()) {
@@ -313,7 +401,13 @@ public class HouseholdMemberDAO extends DBContext {
 
     /**
      * Upsert thành viên active theo (căn + họ tên + quan hệ) — sync từ owner/tenant.
-     * Nếu đã có active cùng tên+quan hệ → bỏ qua; không → insert.
+     * Nếu đã có active cùng tên (bất kỳ quan hệ) → bỏ qua insert.
+     * Nếu đã có đúng tên+quan hệ → trả memberId hiện có; không → insert.
+     *
+     * @param apartmentId  id căn
+     * @param fullName     họ tên
+     * @param relationship quan hệ (null/empty → "Thành viên")
+     * @param phone        SĐT optional
      * @return memberId nếu đã có hoặc insert OK; -1 lỗi; 0 nếu đã tồn tại (tên bất kỳ quan hệ) và skip insert
      */
     public int ensureActiveMember(int apartmentId, String fullName, String relationship, String phone) {
@@ -362,6 +456,7 @@ public class HouseholdMemberDAO extends DBContext {
                 .build());
     }
 
+    /** Chuỗi rỗng → null khi bind SQL (tránh lưu "" cho phone/CCCD). */
     private String emptyToNull(String s) {
         return (s == null || s.isEmpty()) ? null : s;
     }
