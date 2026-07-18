@@ -1,10 +1,10 @@
-# ApartmentManagement (PRJ301) — TV1 + TV2 + Fee + TV4
+# ApartmentManagement (PRJ301) — TV1 + TV2 + Fee + TV4 + TV5 (Admin)
 
 Hệ thống quản lý & xử lý yêu cầu căn hộ chung cư.
 
 **Stack:** NetBeans Ant · Tomcat 10.1 · JDK 17 · Jakarta Servlet/JSP · SQL Server · JDBC · Lombok · JSTL · Bootstrap 5 · Jakarta WebSocket
 
-**Merge:** platform TV1 (auth, building, dashboard, schema/seed) + module căn hộ TV2 (UC-APT-01…09, occupancy VACANT/N/A, history) + module phí TV3 (categories, assignments, resident my-fees) + module yêu cầu cư dân TV4 (gửi / list / chi tiết / hủy PENDING + chat realtime).
+**Merge:** platform TV1 (auth, building, dashboard, schema/seed) + module căn hộ TV2 (UC-APT-01…09, occupancy VACANT/N/A, history) + module phí TV3 (categories, assignments, resident my-fees) + module yêu cầu cư dân TV4 (gửi / list / chi tiết / hủy PENDING + chat realtime) + **TV5 Admin** (CRUD user + thông báo nội bộ).
 
 ---
 
@@ -22,11 +22,11 @@ ApartmentAssignment/
 ├── src/java/apartmentmanagement/
 │   ├── dal/DBContext.java
 │   ├── model/
-│   ├── dao/                    # User, Building, Apartment*, Fee*, Request*, DashboardStats, …
+│   ├── dao/                    # User, Building, Apartment*, Fee*, Request*, AnnouncementDAO (TV5), …
 │   ├── filter/
 │   ├── controller/
 │   │   ├── auth/               # Authen + Dashboard
-│   │   ├── admin/              # Building CRUD
+│   │   ├── admin/              # Building CRUD (TV1) + AdminController user/announcement (TV5)
 │   │   ├── apartment/          # TV2 full module
 │   │   ├── fee/                # TV3 fee module
 │   │   └── request/            # TV4 resident request (+ comment API)
@@ -34,7 +34,8 @@ ApartmentAssignment/
 │   └── util/                   # FlashUtil, DateTimeUtil, HtmlSanitizer, …
 └── web/WEB-INF/views/
     ├── common/                 # layout, sidebar, pagination, flash
-    ├── auth/ admin/ apartment/ fee/ dashboard/ error/
+    ├── auth/ apartment/ fee/ dashboard/ error/
+    ├── admin/                  # building-* (TV1) + listUser/addUser/… + announcement (TV5)
     └── request/                # my-list, create, detail, _comments
 ```
 
@@ -118,6 +119,17 @@ Create / init-floor mặc định: **INACTIVE + N/A**.
 | `/request?action=cancel&id=` | Hủy yêu cầu PENDING (TV4) |
 | `/request-comment` | API list/add comment (fallback HTTP) |
 | `/ws/request-chat/{requestId}` | WebSocket chat realtime trên ticket |
+| `/admin?action=users` | **TV5** Danh sách user (lọc + phân trang) — ADMIN |
+| `/admin?action=add` | **TV5** Thêm user |
+| `/admin?action=detail&id=` | **TV5** Chi tiết user |
+| `/admin?action=edit&id=` | **TV5** Sửa user (role/dept/status) |
+| `/admin?action=lock\|unlock&id=` | **TV5** Khóa / mở khóa user |
+| `/admin?action=reset-password&id=` | **TV5** Reset MK về `DEFAULT_PASSWORD` (`123456`) |
+| `/admin?action=announcements` | **TV5** Danh sách thông báo nội bộ |
+| `/admin?action=add-announcement` | **TV5** Thêm thông báo |
+| `/admin?action=edit-announcement&id=` | **TV5** Sửa thông báo |
+| `/admin?action=delete-announcement&id=` | **TV5** Xóa thông báo |
+| `/request?action=manage` | ⏳ TV5 xử lý request (duyệt/gán) — sidebar placeholder, chưa implement |
 
 Servlet map bằng **`@WebServlet`** / **`@ServerEndpoint`** (không khai báo servlet trong `web.xml` — xem `coding-standards.md`).
 
@@ -157,8 +169,9 @@ Dashboard expected (sau seed): xem comment đầu `database/seed.sql` / block VE
 | Fee (categories, assign, publish, my-fees) | ✅ TV3 |
 | Request cư dân (gửi / list / detail / hủy PENDING) | ✅ TV4 |
 | Request chat/comment (HTTP + WebSocket) | ✅ TV4 |
-| Duyệt / gán / cập nhật tiến độ request | ❌ TV5 (sidebar `action=manage` placeholder) |
-| Admin CRUD user / thông báo nội bộ | ❌ TV5 |
+| **Admin CRUD user** (list/add/edit/detail/lock/unlock/reset MK) | ✅ **TV5** |
+| **Admin CRUD thông báo nội bộ** (list/add/edit/delete + publish) | ✅ **TV5** |
+| Duyệt / gán / cập nhật tiến độ request | ❌ TV5 còn lại (sidebar `action=manage` placeholder) |
 
 ---
 
@@ -194,26 +207,83 @@ util/                 DateTimeUtil, HtmlSanitizer
 views/request/        my-list.jsp, create.jsp, detail.jsp, _comments.jsp
 ```
 
-**Chưa thuộc TV4:** duyệt/từ chối, gán staff, đổi trạng thái ASSIGNED → COMPLETED (TV5). Link sidebar “Quản lý yêu cầu” (`/request?action=manage`) dành cho TV5.
+**Chưa thuộc TV4:** duyệt/từ chối, gán staff, đổi trạng thái ASSIGNED → COMPLETED (phần TV5 còn lại). Link sidebar “Xử lý yêu cầu” (`/request?action=manage`) vẫn là placeholder.
 
 ---
 
-## 7. Phân công (tóm tắt)
+## 7. TV5 — Admin user & thông báo (đã port lên `main`)
 
-| TV | Module | Deliverable chính |
-|----|--------|-------------------|
-| **TV1** | Nền tảng + Auth + Layout + Profile + Dashboard + DB + CRUD tòa | `DBContext`, filter, auth, building, layout |
-| **TV2** | Căn hộ & thành viên | CRUD căn, gán chủ/thuê, thành viên, occupancy |
-| **TV3** | Phí tháng | Tạo/công bố phí, Resident xem, đánh dấu TT |
-| **TV4** | Yêu cầu (Resident) | Gửi / list / chi tiết / hủy PENDING + chat |
-| **TV5** | Xử lý request + Admin | Duyệt/gán/tiến độ; CRUD user; thông báo |
+Phần **quản trị hệ thống** của TV5: CRUD tài khoản + thông báo nội bộ.  
+*(Phần duyệt/gán request chưa có — xem mục 5.)*
+
+**Quyền:** chỉ **ADMIN** (`AuthFilter` rule `/admin` + `AdminController.requireAdmin`).  
+Sidebar: **Người dùng** · **Thông báo**.
+
+### 7.1. User management (`/admin`)
+
+| Action | Method | Mô tả |
+|--------|--------|--------|
+| `users` / `list` | GET | Lọc keyword (username/full name), role, status + phân trang |
+| `add` | GET/POST | Tạo user (username unique, password, full name, email, phone, role, dept) |
+| `detail` / `view` | GET | Chi tiết user |
+| `edit` | GET/POST | Sửa full name, role, department, status (email/phone readonly — user tự sửa profile) |
+| `lock` / `unlock` | GET/POST | Bật/tắt `is_active` |
+| `reset-password` | GET/POST | Reset MK về `AppConstants.DEFAULT_PASSWORD` (`123456`) |
+
+**Bảo vệ:** không khóa tài khoản role **ADMIN** và không khóa chính user đang đăng nhập.
+
+**DAO bổ sung:** `UserDAO.existsByUsername`, `updateByAdmin`, `findWithFilters`, `countWithFilters`, `findActiveStaff`.
+
+### 7.2. Announcement management (`/admin`)
+
+| Action | Method | Mô tả |
+|--------|--------|--------|
+| `announcements` | GET | List + lọc published/draft + phân trang |
+| `add-announcement` | GET/POST | Tạo thông báo (title, content, category, is_published) |
+| `edit-announcement` | GET/POST | Sửa thông báo |
+| `delete-announcement` | GET/POST | Xóa thông báo |
+
+**DAO:** `AnnouncementDAO` (CRUD admin).  
+Landing public vẫn dùng `PublicAnnouncementDAO.findPublished` (chỉ đọc bản đã publish).
+
+**Bảng:** `announcements` (đã có trong `database/schema.sql`).
+
+### 7.3. Package / view chính
+
+```
+controller/admin/     AdminController.java          (@WebServlet /admin)
+                      BuildingController.java       (TV1 — /building, không đụng /admin)
+dao/                  AnnouncementDAO.java
+                      UserDAO.java                  (+ method admin)
+util/                 AppConstants.DEFAULT_PASSWORD
+views/admin/          listUser.jsp, addUser.jsp, editUser.jsp, userDetail.jsp
+                      listAnnouncement.jsp, addAnnouncement.jsp, editAnnouncement.jsp
+                      building-*.jsp                (TV1 — giữ nguyên)
+```
+
+**Tích hợp shell:** forward qua `common/layout.jsp` + flash + compact `pagination.jsp` (giống building/fee).
+
+**Test nhanh (sau seed):** login `admin` / `123456` → menu **Người dùng** / **Thông báo**.
 
 ---
 
-## 8. Git / nhánh
+## 8. Phân công (tóm tắt)
 
-Nhánh chính: **`main`**. Module từng TV merge vào `main` sau khi ổn định.
+| TV | Module | Deliverable chính | Trên `main` |
+|----|--------|-------------------|-------------|
+| **TV1** | Nền tảng + Auth + Layout + Profile + Dashboard + DB + CRUD tòa | `DBContext`, filter, auth, building, layout | ✅ |
+| **TV2** | Căn hộ & thành viên | CRUD căn, gán chủ/thuê, thành viên, occupancy | ✅ |
+| **TV3** | Phí tháng | Tạo/công bố phí, Resident xem, đánh dấu TT | ✅ |
+| **TV4** | Yêu cầu (Resident) | Gửi / list / chi tiết / hủy PENDING + chat | ✅ |
+| **TV5** | Admin + xử lý request | CRUD user + thông báo; duyệt/gán/tiến độ request | ✅ Admin · ⏳ manage request |
+
+---
+
+## 9. Git / nhánh
+
+Nhánh chính: **`main`**. Module từng TV merge/port vào `main` sau khi ổn định.
 
 - Mỗi người chỉ sửa package module mình; shell (`layout`, filter, `DBContext`) merge cẩn thận.  
+- **TV5 Admin** được **port chọn lọc** lên `main` (không merge cả nhánh feature cũ để tránh đè building/apartment/fee/request).  
 - Không commit mật khẩu máy cá nhân (đổi local trong `DBContext`).  
 - `nbproject/private/` đã ignore (path tuyệt đối theo máy).
