@@ -105,7 +105,8 @@
                                         </option>
                                     </select>
                                     <div class="form-text">
-                                        Chọn đúng loại hình hiển thị. Có owner/tenant thực tế hệ thống sẽ nâng lên OWNED/RENTED.
+                                        VACANT = trống (chưa gán). Muốn gán: chọn <strong>OWNED</strong> rồi gán owner,
+                                        hoặc <strong>RENTED</strong> rồi gán người thuê.
                                     </div>
                                 </c:when>
                                 <c:otherwise>

@@ -156,36 +156,43 @@
 </div>
 
 <%-- ===== Chủ sở hữu + Người thuê =====
-     OWNED (chủ ở): chỉ hiện chủ — không mục người thuê
-     RENTED: chủ nhà (OWNER) + người thuê
+     VACANT: phải Sửa loại hình → OWNED/RENTED trước mới gán
+     OWNED: gán owner → TV
+     RENTED: gán người thuê (+ chủ nhà tùy chọn)
 --%>
 <c:set var="isOwnedOnly" value="${apartment.occupancyType == 'OWNED'}" />
+<c:set var="isVacant" value="${apartment.occupancyType == 'VACANT' || empty apartment.occupancyType || apartment.occupancyType == 'N/A'}" />
+<c:set var="isRented" value="${apartment.occupancyType == 'RENTED'}" />
 <div class="row g-3 mb-3">
-    <div class="${isOwnedOnly ? 'col-md-12' : 'col-md-6'}">
+    <div class="${isOwnedOnly || isVacant ? 'col-md-12' : 'col-md-6'}">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
                 <span>
                     <i class="bi bi-person-badge me-1"></i>
                     <c:choose>
-                        <c:when test="${apartment.occupancyType == 'RENTED'}">Chủ nhà (OWNER)</c:when>
+                        <c:when test="${isRented}">Chủ nhà (landlord)</c:when>
                         <c:otherwise>Chủ sở hữu</c:otherwise>
                     </c:choose>
                 </span>
-                <c:if test="${canManage}">
+                <c:if test="${canManage && !isVacant && (isOwnedOnly || isRented)}">
                     <div class="d-flex flex-wrap gap-1">
                         <a class="btn btn-sm btn-outline-primary"
                            href="${pageContext.request.contextPath}/apartment?action=assign-owner&amp;id=${apartment.apartmentId}">
                             <c:choose>
+                                <c:when test="${isRented && empty owners}">Gán chủ nhà</c:when>
+                                <c:when test="${isRented}">Đổi chủ nhà</c:when>
                                 <c:when test="${empty owners}">Gán owner</c:when>
                                 <c:otherwise>Đổi owner</c:otherwise>
                             </c:choose>
                         </a>
                         <c:if test="${not empty owners}">
                             <form method="post" action="${pageContext.request.contextPath}/apartment" class="d-inline"
-                                  onsubmit="return confirm('Gỡ chủ sở hữu khỏi căn này? Thành viên hộ không bị xóa — gỡ TV riêng nếu cần.');">
+                                  onsubmit="return confirm('${isRented ? 'Gỡ chủ nhà khỏi căn này? (không ảnh hưởng thành viên hộ)' : 'Gỡ chủ sở hữu khỏi căn này? Thành viên hộ gỡ riêng nếu cần.'}');">
                                 <input type="hidden" name="action" value="remove-owner">
                                 <input type="hidden" name="apartmentId" value="${apartment.apartmentId}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Gỡ owner</button>
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    ${isRented ? 'Gỡ chủ nhà' : 'Gỡ owner'}
+                                </button>
                             </form>
                         </c:if>
                     </div>
@@ -193,14 +200,32 @@
             </div>
             <div class="card-body">
                 <c:choose>
+                    <c:when test="${isVacant}">
+                        <div class="text-muted small py-3 text-center">
+                            <i class="bi bi-info-circle d-block mb-1 fs-4"></i>
+                            Căn <strong>VACANT</strong> — chưa gán cư dân.
+                            <c:if test="${canManage}">
+                                <div class="mt-2">
+                                    Hãy
+                                    <a href="${pageContext.request.contextPath}/apartment?action=edit&amp;id=${apartment.apartmentId}">
+                                        Sửa loại hình
+                                    </a>
+                                    → <strong>OWNED</strong> (mua) hoặc <strong>RENTED</strong> (thuê), rồi gán thông tin.
+                                </div>
+                            </c:if>
+                        </div>
+                    </c:when>
                     <c:when test="${empty owners}">
                         <div class="text-muted small py-3 text-center">
                             <i class="bi bi-person-x d-block mb-1 fs-4"></i>
-                            Chưa gán chủ sở hữu
-                            <c:if test="${canManage}">
+                            <c:choose>
+                                <c:when test="${isRented}">Chưa gán chủ nhà</c:when>
+                                <c:otherwise>Chưa gán chủ sở hữu</c:otherwise>
+                            </c:choose>
+                            <c:if test="${canManage && (isOwnedOnly || isRented)}">
                                 <div class="mt-2">
                                     <a href="${pageContext.request.contextPath}/apartment?action=assign-owner&amp;id=${apartment.apartmentId}">
-                                        Gán chủ sở hữu
+                                        ${isRented ? 'Gán chủ nhà' : 'Gán chủ sở hữu'}
                                     </a>
                                 </div>
                             </c:if>
@@ -230,8 +255,8 @@
             </div>
         </div>
     </div>
-    <%-- OWNED: không hiển thị mục người thuê --%>
-    <c:if test="${!isOwnedOnly}">
+    <%-- OWNED / VACANT: không hiện cột người thuê — chỉ RENTED --%>
+    <c:if test="${isRented}">
     <div class="col-md-6">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
@@ -312,13 +337,16 @@
     </c:if>
 </div>
 
-<%-- ===== Thành viên hộ ===== --%>
+<%-- ===== Thành viên hộ =====
+     Thứ tự: gán owner (OWNED) hoặc owner+thuê (RENTED) trước → mới thêm TV khác.
+     Owner / người thuê auto có trong list TV khi gán.
+--%>
 <div class="card shadow-sm mb-3">
     <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
         <span><i class="bi bi-house-heart me-1"></i> Thành viên hộ</span>
         <div class="d-flex align-items-center gap-2">
             <span class="badge text-bg-light text-dark">${empty members ? 0 : members.size()}</span>
-            <c:if test="${canManage}">
+            <c:if test="${canManage && canAddMember}">
                 <a class="btn btn-sm btn-outline-primary"
                    href="${pageContext.request.contextPath}/apartment?action=add-member&amp;id=${apartment.apartmentId}">
                     <i class="bi bi-person-plus"></i> Thêm TV
@@ -326,6 +354,27 @@
             </c:if>
         </div>
     </div>
+    <c:if test="${canManage && not empty addMemberBlockReason}">
+        <div class="alert alert-warning border-0 border-bottom rounded-0 small mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            <c:out value="${addMemberBlockReason}"/>
+            <span class="ms-1">
+                <c:choose>
+                    <c:when test="${isVacant}">
+                        <a href="${pageContext.request.contextPath}/apartment?action=edit&amp;id=${apartment.apartmentId}">Sửa loại hình</a>
+                    </c:when>
+                    <c:when test="${isRented}">
+                        <a href="${pageContext.request.contextPath}/apartment?action=assign-tenant&amp;id=${apartment.apartmentId}">Gán thuê</a>
+                        ·
+                        <a href="${pageContext.request.contextPath}/apartment?action=assign-owner&amp;id=${apartment.apartmentId}">Gán chủ nhà</a>
+                    </c:when>
+                    <c:when test="${isOwnedOnly}">
+                        <a href="${pageContext.request.contextPath}/apartment?action=assign-owner&amp;id=${apartment.apartmentId}">Gán chủ sở hữu</a>
+                    </c:when>
+                </c:choose>
+            </span>
+        </div>
+    </c:if>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-sm table-hover align-middle mb-0">
@@ -346,7 +395,7 @@
                         <tr>
                             <td colspan="${canManage ? 7 : 6}" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox me-1"></i> Chưa có thành viên hộ
-                                <c:if test="${canManage}">
+                                <c:if test="${canManage && canAddMember}">
                                     ·
                                     <a href="${pageContext.request.contextPath}/apartment?action=add-member&amp;id=${apartment.apartmentId}">
                                         Thêm thành viên

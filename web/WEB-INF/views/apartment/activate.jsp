@@ -67,6 +67,8 @@
                     <div class="alert alert-light border small mb-0">
                         <i class="bi bi-info-circle me-1"></i>
                         Sau khi kích hoạt: <code>ACTIVE</code> + loại hình đã chọn.
+                        <strong>Chủ sở hữu / người thuê để trống</strong> — gán sau trên màn chi tiết.
+                        Vẫn <strong>thêm thành viên hộ</strong> bình thường (kể cả căn <code>RENTED</code>).
                         Có thể sửa loại hình / diện tích ở form <strong>Sửa</strong>.
                     </div>
                 </div>
