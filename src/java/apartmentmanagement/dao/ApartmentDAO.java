@@ -719,6 +719,7 @@ public class ApartmentDAO extends DBContext {
                     + "AND ISNULL(a.occupancy_type, N'') <> N'RENTED'");
 
             // 3) ACTIVE + owner only (không tenant) → OWNED
+            //    Không đụng căn đang RENTED (chủ nhà chờ gán thuê sau kích hoạt).
             total += runUpdateSafe(connection,
                     "UPDATE a SET a.occupancy_type = N'OWNED', a.updated_at = SYSUTCDATETIME() "
                     + "FROM apartments a "
@@ -729,9 +730,10 @@ public class ApartmentDAO extends DBContext {
                     + "AND NOT EXISTS (SELECT 1 FROM apartment_residents r "
                     + "  WHERE r.apartment_id = a.apartment_id AND r.is_current = 1 "
                     + "  AND r.role_in_apartment IN (N'TENANT_REP', N'TENANT')) "
-                    + "AND ISNULL(a.occupancy_type, N'') <> N'OWNED'");
+                    + "AND ISNULL(a.occupancy_type, N'') NOT IN (N'OWNED', N'RENTED')");
 
             // 4) ACTIVE + TV hộ, không role → OWNED
+            //    Giữ RENTED nếu đã chọn lúc kích hoạt (thêm TV trước, owner/thuê gán sau).
             total += runUpdateSafe(connection,
                     "UPDATE a SET a.occupancy_type = N'OWNED', a.updated_at = SYSUTCDATETIME() "
                     + "FROM apartments a "
@@ -740,7 +742,7 @@ public class ApartmentDAO extends DBContext {
                     + "  WHERE r.apartment_id = a.apartment_id AND r.is_current = 1) "
                     + "AND EXISTS (SELECT 1 FROM household_members hm "
                     + "  WHERE hm.apartment_id = a.apartment_id AND hm.is_active = 1) "
-                    + "AND ISNULL(a.occupancy_type, N'') <> N'OWNED'");
+                    + "AND ISNULL(a.occupancy_type, N'') NOT IN (N'OWNED', N'RENTED')");
 
             // 5) ACTIVE trống + occupancy không hợp lệ (null / N/A / lạ) → VACANT
             //    Giữ OWNED / RENTED / VACANT đã chọn lúc kích hoạt hoặc form Sửa.

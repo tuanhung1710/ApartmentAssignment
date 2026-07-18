@@ -276,6 +276,34 @@ public class ApartmentResidentDAO extends DBContext {
         }
     }
 
+    /** Gỡ hẳn 1 cư dân current theo user + role (cascade xóa TV). */
+    public int deleteCurrentByUserAndRole(int apartmentId, int userId, String role) {
+        clearError();
+        if (role == null || role.isEmpty()) {
+            return 0;
+        }
+        String sql = "DELETE FROM apartment_residents "
+                + "WHERE apartment_id = ? AND user_id = ? AND role_in_apartment = ? AND is_current = 1";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                lastError = "Không kết nối được database.";
+                return -1;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, apartmentId);
+            statement.setInt(2, userId);
+            statement.setString(3, role);
+            return statement.executeUpdate();
+        } catch (SQLException e) {
+            lastError = friendlySqlError(e);
+            System.out.println("ApartmentResidentDAO.deleteCurrentByUserAndRole: " + e.getMessage());
+            return -1;
+        } finally {
+            closeResources();
+        }
+    }
+
     public int insertOwner(int apartmentId, int userId, Date startDate) {
         return insertResident(apartmentId, userId, AppConstants.APT_ROLE_OWNER, startDate, null);
     }
@@ -365,7 +393,7 @@ public class ApartmentResidentDAO extends DBContext {
     private String friendlySqlError(SQLException e) {
         String msg = e.getMessage() == null ? "" : e.getMessage();
         if (msg.contains("Invalid object name") && msg.toLowerCase().contains("apartment_residents")) {
-            return "Bảng apartment_residents chưa có. Hãy chạy database/apartment-detail-tables.sql";
+            return "Bảng apartment_residents chưa có. Hãy chạy database/schema.sql rồi seed.sql";
         }
         if (msg.contains("Invalid object name")) {
             return "Thiếu bảng DB: " + msg;

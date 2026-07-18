@@ -251,6 +251,36 @@ public class UserDAO extends DBContext {
         return list;
     }
 
+    /**
+     * Tìm user active theo họ tên (không phân biệt hoa thường, trim).
+     * Dùng khi gán owner/thuê từ thành viên hộ đã có sẵn.
+     */
+    public User findActiveByFullName(String fullName) {
+        if (fullName == null || fullName.trim().isEmpty()) {
+            return null;
+        }
+        String sql = "SELECT TOP 1 * FROM users WHERE is_active = 1 "
+                + "AND LOWER(LTRIM(RTRIM(full_name))) = LOWER(?) "
+                + "ORDER BY CASE WHEN role = 'RESIDENT' THEN 0 ELSE 1 END, user_id";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return null;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, fullName.trim());
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return getFromResultSet(resultSet);
+            }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.findActiveByFullName error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return null;
+    }
+
     public int insert(User user) {
         String sql = "INSERT INTO users (username, password, full_name, email, phone, role, department, is_active) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";

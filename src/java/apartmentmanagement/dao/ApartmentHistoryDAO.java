@@ -139,7 +139,7 @@ public class ApartmentHistoryDAO extends DBContext {
         } catch (SQLException e) {
             String msg = e.getMessage() == null ? "" : e.getMessage();
             if (msg.contains("Invalid object name") && msg.toLowerCase().contains("apartment_history")) {
-                lastError = "Bảng apartment_history chưa có. Chạy database/apartment-detail-tables.sql";
+                lastError = "Bảng apartment_history chưa có. Chạy database/schema.sql rồi seed.sql";
                 tableEnsured = false;
             } else {
                 lastError = msg;
