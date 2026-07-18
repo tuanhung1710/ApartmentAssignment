@@ -1,5 +1,6 @@
 package apartmentmanagement.controller.auth;
 
+import apartmentmanagement.dao.RequestDAO;
 import apartmentmanagement.dao.UserDAO;
 import apartmentmanagement.model.User;
 import apartmentmanagement.util.AppConstants;
@@ -12,13 +13,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 
-/**
- * Dashboard shell theo role – các module bổ sung số liệu sau.
- */
 @WebServlet(name = "DashboardController", urlPatterns = {"/dashboard"})
 public class DashboardController extends HttpServlet {
 
     private final UserDAO userDAO = new UserDAO();
+    private final RequestDAO requestDAO = new RequestDAO();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -30,10 +29,13 @@ public class DashboardController extends HttpServlet {
             return;
         }
 
-        // Số liệu đơn giản cho Admin; module khác sẽ bổ sung count sau
         if (AppConstants.ROLE_ADMIN.equals(user.getRole())) {
             request.setAttribute("totalUsers", userDAO.countAll());
             request.setAttribute("lockedUsers", userDAO.countByActive(false));
+        }
+
+        if (AppConstants.ROLE_RESIDENT.equals(user.getRole())) {
+            request.setAttribute("openRequests", requestDAO.countOpenByCreatedBy(user.getUserId()));
         }
 
         FlashUtil.moveToRequest(request);

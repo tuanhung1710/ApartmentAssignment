@@ -14,7 +14,6 @@ public class Request {
     private Integer requestId;
     private Integer apartmentId;
     private Integer createdBy;
-    /** REPAIR | PARKING | MOVE_IN | MOVE_OUT | OTHER */
     private String requestType;
     private String title;
     private String description;
@@ -33,7 +32,6 @@ public class Request {
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
-    // display helpers (JOIN flat fields)
     private String apartmentCode;
     private String createdByName;
     private String assignedToName;

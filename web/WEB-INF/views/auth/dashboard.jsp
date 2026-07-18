@@ -55,8 +55,8 @@
                 <div class="card stat-card h-100">
                     <div class="card-body">
                         <h3 class="h6">Yêu cầu chờ duyệt</h3>
-                        <p class="small text-muted">Phê duyệt / từ chối / gán Staff</p>
-                        <a class="btn btn-sm btn-primary" href="${pageContext.request.contextPath}/request?action=manage">Mở</a>
+                        <p class="small text-muted">Module xử lý – TV5</p>
+                        <span class="btn btn-sm btn-outline-secondary disabled">TV5</span>
                     </div>
                 </div>
             </div>
@@ -76,8 +76,8 @@
                 <div class="card stat-card h-100">
                     <div class="card-body">
                         <h3 class="h6">Việc được gán</h3>
-                        <p class="small text-muted">Cập nhật tiến độ yêu cầu</p>
-                        <a class="btn btn-sm btn-primary" href="${pageContext.request.contextPath}/request?action=manage">Mở</a>
+                        <p class="small text-muted">Cập nhật tiến độ – TV5</p>
+                        <span class="btn btn-sm btn-outline-secondary disabled">TV5</span>
                     </div>
                 </div>
             </div>
@@ -114,9 +114,11 @@
             <div class="col-md-4">
                 <div class="card stat-card h-100">
                     <div class="card-body">
-                        <h3 class="h6">Yêu cầu</h3>
-                        <p class="small text-muted">Gửi &amp; theo dõi tiến độ</p>
+                        <h3 class="h6">Yêu cầu đang mở</h3>
+                        <div class="stat-value text-primary mb-1">${empty openRequests ? 0 : openRequests}</div>
+                        <p class="small text-muted mb-2">Gửi &amp; theo dõi tiến độ</p>
                         <a class="btn btn-sm btn-primary" href="${pageContext.request.contextPath}/request?action=my">Mở</a>
+                        <a class="btn btn-sm btn-outline-primary" href="${pageContext.request.contextPath}/request?action=create">Gửi mới</a>
                     </div>
                 </div>
             </div>
@@ -126,5 +128,4 @@
 
 <div class="alert alert-info mt-4 mb-0">
     <i class="bi bi-info-circle me-1"></i>
-    Scaffold nền tảng đã sẵn sàng. Module Căn hộ / Phí / Yêu cầu / Admin sẽ được các thành viên bổ sung theo kế hoạch 1 tuần.
 </div>
