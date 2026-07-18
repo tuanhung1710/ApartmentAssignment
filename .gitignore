@@ -1,0 +1,13 @@
+# Build NetBeans / Ant
+/build/
+/dist/
+
+# IDE / máy local
+/nbproject/private/
+*.class
+*.log
+.DS_Store
+Thumbs.db
+
+# Không commit file cấu hình cá nhân (nếu sau này tách ra)
+# db.properties

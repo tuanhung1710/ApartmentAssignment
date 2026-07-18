@@ -81,18 +81,97 @@ public class UserDAO extends DBContext {
         return null;
     }
 
+    
+    public User findActiveByUsername(String username) {
+        String sql = "SELECT * FROM users WHERE username = ? AND is_active = 1";
+        try {
+            connection = getConnection();
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, username);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return getFromResultSet(resultSet);
+            }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.findActiveByUsername error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return null;
+    }
+
+    
+    public User findActiveByUsernameAndEmail(String username, String email) {
+        String sql = "SELECT * FROM users WHERE username = ? AND is_active = 1 "
+                + "AND email IS NOT NULL AND LOWER(email) = LOWER(?)";
+        try {
+            connection = getConnection();
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, username);
+            statement.setString(2, email);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return getFromResultSet(resultSet);
+            }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.findActiveByUsernameAndEmail error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return null;
+    }
+
+    
+    public User findActiveByUsernameAndPhone(String username, String phone) {
+        String sql = "SELECT * FROM users WHERE username = ? AND is_active = 1 "
+                + "AND phone IS NOT NULL AND phone = ?";
+        try {
+            connection = getConnection();
+            statement = connection.prepareStatement(sql);
+            statement.setString(1, username);
+            statement.setString(2, phone);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return getFromResultSet(resultSet);
+            }
+        } catch (SQLException e) {
+            System.out.println("UserDAO.findActiveByUsernameAndPhone error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return null;
+    }
+
+    
     public boolean updateProfile(User user) {
-        String sql = "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
+        String sql = "UPDATE users SET full_name = ?, phone = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
         try {
             connection = getConnection();
             statement = connection.prepareStatement(sql);
             statement.setString(1, user.getFullName());
-            statement.setString(2, user.getEmail());
-            statement.setString(3, user.getPhone());
-            statement.setInt(4, user.getUserId());
+            statement.setString(2, user.getPhone());
+            statement.setInt(3, user.getUserId());
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("UserDAO.updateProfile error: " + e.getMessage());
+            return false;
+        } finally {
+            closeResources();
+        }
+    }
+
+    
+    public boolean checkPassword(int userId, String oldPassword) {
+        String sql = "SELECT user_id FROM users WHERE user_id = ? AND password = ?";
+        try {
+            connection = getConnection();
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, userId);
+            statement.setString(2, oldPassword);
+            resultSet = statement.executeQuery();
+            return resultSet.next();
+        } catch (SQLException e) {
+            System.out.println("UserDAO.checkPassword error: " + e.getMessage());
             return false;
         } finally {
             closeResources();
@@ -115,11 +194,19 @@ public class UserDAO extends DBContext {
         }
     }
 
+    
+    public boolean updatePassword(int userId, String newPassword) {
+        return changePassword(userId, newPassword);
+    }
+
     public List<User> findAll() {
         List<User> list = new ArrayList<>();
         String sql = "SELECT * FROM users ORDER BY user_id";
         try {
             connection = getConnection();
+            if (connection == null) {
+                return list;
+            }
             statement = connection.prepareStatement(sql);
             resultSet = statement.executeQuery();
             while (resultSet.next()) {

@@ -3,9 +3,7 @@ package apartmentmanagement.util;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
-/**
- * Flash message helper – set vào session, đọc 1 lần rồi xóa.
- */
+
 public final class FlashUtil {
 
     private FlashUtil() {
@@ -21,10 +19,15 @@ public final class FlashUtil {
         session.setAttribute(AppConstants.FLASH_ERROR, message);
     }
 
-    /**
-     * Chuyển flash từ session sang request attribute rồi xóa session flash.
-     * Gọi trước khi forward JSP layout.
-     */
+    public static void setFlashSuccess(HttpServletRequest request, String message) {
+        success(request, message);
+    }
+
+    public static void setFlashError(HttpServletRequest request, String message) {
+        error(request, message);
+    }
+
+    
     public static void moveToRequest(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {

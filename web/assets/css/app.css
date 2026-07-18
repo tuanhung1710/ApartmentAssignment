@@ -1,28 +1,54 @@
+/* ==========================================================================
+   ApartmentManagement – app shell (TV1)
+   Breakpoints (Bootstrap 5):
+     xs <576 | sm ≥576 | md ≥768 | lg ≥992 | xl ≥1200 | xxl ≥1400
+   Target: mobile 360–430, tablet 768–1024, desktop ≥1280
+   ========================================================================== */
+
 :root {
     --sidebar-width: 250px;
     --brand: #0d6efd;
     --brand-dark: #0a58ca;
+    --topbar-height: 56px;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
 }
 
 body {
     min-height: 100vh;
     background-color: #f4f6f9;
+    overflow-x: hidden;
 }
 
 .app-wrapper {
     display: flex;
     min-height: 100vh;
+    width: 100%;
 }
 
+/* ---------- Desktop sidebar (≥ lg) ---------- */
 .sidebar {
     width: var(--sidebar-width);
     background: #1e293b;
     color: #e2e8f0;
     flex-shrink: 0;
     min-height: 100vh;
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow-y: auto;
 }
 
-.sidebar .brand {
+.sidebar .brand,
+.sidebar-offcanvas .brand {
     padding: 1.1rem 1rem;
     font-weight: 700;
     font-size: 1.05rem;
@@ -32,7 +58,8 @@ body {
     display: block;
 }
 
-.sidebar .nav-link {
+.sidebar .nav-link,
+.sidebar-offcanvas .nav-link {
     color: #cbd5e1;
     padding: 0.65rem 1rem;
     border-radius: 0.35rem;
@@ -40,12 +67,15 @@ body {
 }
 
 .sidebar .nav-link:hover,
-.sidebar .nav-link.active {
+.sidebar .nav-link.active,
+.sidebar-offcanvas .nav-link:hover,
+.sidebar-offcanvas .nav-link.active {
     background: rgba(13, 110, 253, 0.25);
     color: #fff;
 }
 
-.sidebar .nav-section {
+.sidebar .nav-section,
+.sidebar-offcanvas .nav-section {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -53,24 +83,57 @@ body {
     padding: 0.9rem 1rem 0.3rem;
 }
 
+/* Offcanvas mobile menu (cùng theme sidebar) */
+.sidebar-offcanvas {
+    width: min(var(--sidebar-width), 85vw) !important;
+    background: #1e293b;
+    color: #e2e8f0;
+}
+
+.sidebar-offcanvas .offcanvas-header {
+    background: #1e293b;
+}
+
+.sidebar-offcanvas .brand {
+    border-bottom: none;
+}
+
 .main-content {
     flex: 1;
-    min-width: 0;
+    min-width: 0; /* quan trọng: cho table/content co trong flex */
     display: flex;
     flex-direction: column;
+    width: 100%;
 }
 
 .topbar {
     background: #fff;
     border-bottom: 1px solid #e5e7eb;
-    padding: 0.75rem 1.25rem;
+    padding: 0.65rem 1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 0.5rem;
+    min-height: var(--topbar-height);
+    position: sticky;
+    top: 0;
+    z-index: 1020;
 }
 
 .content-body {
-    padding: 1.25rem;
+    padding: 1rem;
+    flex: 1;
+    width: 100%;
+    max-width: 100%;
+}
+
+.app-footer {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
+    color: #6b7280;
+    font-size: 0.85rem;
+    text-align: center;
 }
 
 .stat-card {
@@ -82,30 +145,91 @@ body {
 .stat-card .stat-value {
     font-size: 1.75rem;
     font-weight: 700;
-}
-
-.login-page {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%);
-}
-
-.login-card {
-    width: 100%;
-    max-width: 420px;
-    border: 0;
-    border-radius: 1rem;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    word-break: break-word;
 }
 
 .badge-role {
     font-size: 0.75rem;
 }
 
-@media (max-width: 768px) {
-    .sidebar {
-        display: none;
+/* Table: luôn bọc .table-responsive ở JSP; fallback an toàn */
+.table-responsive {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Form trong card: nút full-width trên mobile */
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Bootstrap không có w-sm-auto sẵn — toolbar mobile full width */
+@media (min-width: 576px) {
+    .w-sm-auto {
+        width: auto !important;
+    }
+}
+
+/* ---------- Breakpoints ---------- */
+
+/* ≥ sm (576): padding thoáng hơn */
+@media (min-width: 576px) {
+    .content-body {
+        padding: 1.25rem;
+    }
+
+    .topbar {
+        padding: 0.75rem 1.25rem;
+    }
+
+    .app-footer {
+        padding: 0.75rem 1.25rem;
+    }
+}
+
+/* < lg (992): sidebar ẩn (dùng offcanvas), content full width */
+@media (max-width: 991.98px) {
+    .app-wrapper {
+        display: block;
+    }
+
+    .main-content {
+        min-height: 100vh;
+    }
+
+    .stat-card .stat-value {
+        font-size: 1.5rem;
+    }
+}
+
+/* Mobile hẹp (≤ 400): tránh nút/header chật */
+@media (max-width: 400px) {
+    .topbar .h5 {
+        font-size: 1rem;
+    }
+
+    .content-body {
+        padding: 0.75rem;
+    }
+
+    .stat-card .stat-value {
+        font-size: 1.35rem;
+    }
+}
+
+/* Print: ẩn chrome */
+@media print {
+    .sidebar,
+    .sidebar-offcanvas,
+    .topbar,
+    .app-footer {
+        display: none !important;
+    }
+
+    .main-content,
+    .content-body {
+        padding: 0;
+        width: 100%;
     }
 }

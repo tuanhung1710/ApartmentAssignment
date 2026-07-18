@@ -1,0 +1,211 @@
+/* Public landing / auth pages – Skyland Apartment (TV1) */
+* { box-sizing: border-box; }
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+body.public-body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #f8f9fa;
+    color: #212529;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.text-primary-custom { color: #1a4388 !important; }
+.bg-primary-custom { background-color: #1a4388 !important; }
+.btn-primary-custom {
+    background-color: #1a4388;
+    border-color: #1a4388;
+    color: #fff;
+}
+.btn-primary-custom:hover,
+.btn-primary-custom:focus {
+    background-color: #123063;
+    border-color: #123063;
+    color: #fff;
+}
+.btn-outline-primary-custom {
+    color: #1a4388;
+    border-color: #1a4388;
+    font-weight: 500;
+}
+.btn-outline-primary-custom:hover {
+    background-color: #1a4388;
+    color: #fff;
+}
+
+.public-navbar {
+    width: 100%;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+    background: #fff !important;
+}
+.public-navbar .nav-link {
+    font-weight: 500;
+    color: #334155 !important;
+}
+.public-navbar .nav-link:hover,
+.public-navbar .nav-link.active {
+    color: #1a4388 !important;
+}
+
+.public-hero {
+    background:
+        linear-gradient(to right, rgba(26, 67, 136, 0.88), rgba(26, 67, 136, 0.45)),
+        url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
+    color: #fff;
+    padding: 100px 0 90px;
+}
+.public-hero h1 {
+    font-weight: 700;
+    font-size: 2.75rem;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+}
+.public-hero .lead {
+    font-weight: 300;
+    opacity: 0.92;
+    max-width: 36rem;
+    font-size: 1.15rem;
+}
+
+.public-section {
+    padding: 4rem 0;
+}
+.public-section.alt {
+    background: #fff;
+}
+.public-section .section-title {
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+}
+.public-section .section-sub {
+    color: #64748b;
+    margin-bottom: 2rem;
+    max-width: 40rem;
+}
+
+.public-card {
+    background: #fff;
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+    height: 100%;
+    padding: 1.5rem;
+}
+.public-card .icon-circle,
+.icon-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #1a4388;
+    color: #fff;
+    margin-bottom: 1rem;
+}
+
+.announcement-item {
+    border-left: 4px solid #1a4388;
+    background: #fff;
+    border-radius: 0 12px 12px 0;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+.announcement-item .cat {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #1a4388;
+}
+.announcement-item pre-content,
+.announcement-item .content-text {
+    white-space: pre-line;
+    color: #475569;
+    margin: 0.35rem 0 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.faq-item {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+    margin-bottom: 0.75rem;
+}
+.faq-item .accordion-button:not(.collapsed) {
+    background: #eef4fc;
+    color: #1a4388;
+    box-shadow: none;
+}
+.faq-item .accordion-button:focus {
+    box-shadow: 0 0 0 0.2rem rgba(26, 67, 136, 0.15);
+}
+
+.lookup-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+    padding: 1.75rem;
+    height: 100%;
+}
+.lookup-card h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+.price-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px dashed #e5e7eb;
+}
+.price-item:last-child { border-bottom: 0; }
+.price-item strong { color: #1a4388; white-space: nowrap; }
+.note-box {
+    background: #f1f5f9;
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+    font-size: 0.9rem;
+    color: #475569;
+}
+
+.public-footer {
+    width: 100%;
+    background-color: #111827;
+    color: #9ca3af;
+    padding: 60px 0 30px;
+    margin-top: auto;
+}
+.public-footer h5 {
+    color: #f3f4f6;
+    font-weight: 600;
+}
+.public-footer a {
+    color: #9ca3af;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.public-footer a:hover { color: #fff; }
+.public-footer .text-primary-custom { color: #60a5fa !important; }
+
+@media (max-width: 991.98px) {
+    .public-hero { padding: 72px 0 64px; }
+    .public-hero h1 { font-size: 2.1rem; }
+    .public-section { padding: 3rem 0; }
+}
+@media (max-width: 767.98px) {
+    .public-hero h1 { font-size: 1.65rem; }
+    .public-hero .lead { font-size: 1.05rem; }
+    .lookup-card { padding: 1.25rem; }
+    .public-footer { padding: 40px 0 24px; }
+}
