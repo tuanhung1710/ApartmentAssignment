@@ -1,33 +1,42 @@
 ## Title
-bug/ux: Đổi chủ sở hữu / không tenant mà Thành viên hộ vẫn còn data cũ
+bug: Đổi chủ sở hữu / không còn người thuê mà Thành viên hộ vẫn còn data cũ
 
 ## Labels
-`bug`, `enhancement`, `apartment`, `household-member`, `uc-apt-06`
+`bug`, `apartment`, `household-member`, `uc-apt-06`
 
 ## Body
+### Vibe annotation #2
+- **Page:** `/ApartmentManagement/apartment?action=detail&id=4`
+- **Block:** Thành viên hộ
+- **Hiện tượng:** Đổi chủ sở hữu xong, **không có người thuê**, nhưng danh sách thành viên hộ **vẫn còn** người cũ.
 
-### Mô tả (Vibe annotation #2)
-**Page:** `/ApartmentManagement/apartment?action=detail&id=4`  
-Sau **đổi chủ sở hữu**, **không có người thuê**, block **Thành viên hộ** vẫn còn thành viên cũ.
-
-### Root cause (thiết kế ban đầu)
+### Phân tích (code hiện tại)
 3 nguồn data độc lập:
-- Owner → `apartment_residents` (OWNER)
-- Tenant → `apartment_residents` (TENANT*)
-- Thành viên hộ → `household_members`
+| Nguồn | Bảng |
+|-------|------|
+| Owner / chủ nhà | `apartment_residents` OWNER |
+| Tenant | `apartment_residents` TENANT* |
+| Thành viên hộ | `household_members` |
 
-Gán owner **không** đồng bộ household (trước fix).
+`handleAssignOwner` (OWNED):
+- Sync **1 dòng Chủ hộ** theo owner mới (`ensureActiveMember`)
+- Có thể gỡ dòng Chủ hộ owner cũ theo tên
+- **Không** clear toàn bộ TV còn lại khi đổi owner / khi căn không còn tenant
 
-### Expected
-- Đổi owner: clear/xử lý nhân khẩu cũ; đồng bộ dòng **Chủ hộ** theo owner mới
-- Gỡ owner: **chỉ** gỡ gán OWNER; TV gỡ **riêng** bằng nút Xóa (không cùng lúc)
+→ Nhân khẩu cũ (Thành viên) vẫn nằm trên detail → user hiểu nhầm “vẫn còn người ở”.
 
-### Code liên quan
-- `handleAssignOwner` (đổi owner → softDeleteAllActive + ensureActiveMember Chủ hộ)
-- `handleRemoveOwner` (chỉ end owner, không xóa TV)
+### Expected (theo feedback)
+Khi **đổi owner** và căn **không còn người thuê** (OWNED / trống thuê):
+- Xử lý nhân khẩu cũ (clear soft/hard theo BR chốt)
+- Đồng bộ dòng **Chủ hộ** theo owner mới (OWNED)
+- RENTED: landlord **không** vào TV (đã có rule riêng)
+
+### Code
+- `ApartmentController.handleAssignOwner`
+- `HouseholdMemberDAO.softDeleteAllActiveByApartment` / `ensureActiveMember` / `hardDeleteByNameAndRelationship`
 - `detail.jsp` block Thành viên hộ
 
 ### Acceptance
-- [ ] Đổi owner không giữ TV “gắn owner cũ” gây hiểu nhầm
-- [ ] Gỡ owner ≠ xóa TV cùng lúc
-- [ ] User có thể Xóa TV thủ công sau
+- [ ] Đổi owner (không tenant) → TV không còn “gắn hộ cũ” gây hiểu nhầm
+- [ ] OWNED: owner mới xuất hiện TV với vai trò Chủ hộ
+- [ ] History/audit ghi rõ clear + sync TV

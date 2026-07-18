@@ -59,7 +59,7 @@ for f in \
   "$DIR/02-owner-change-should-not-keep-stale-household-expectation.md" \
   "$DIR/03-assign-tenant-does-not-update-household-members.md" \
   "$DIR/04-missing-history-on-assign-owner-tenant.md" \
-  "$DIR/05-remove-member-should-hard-delete-from-household.md" \
+  "$DIR/05-remove-should-clear-household-member.md" \
   "$DIR/06-cleanup-redundant-comments.md"
 do
   create_one "$f"

@@ -1,36 +1,37 @@
-# Tạo GitHub Issues từ feedback Vibe
+# Tạo GitHub Issues từ feedback Vibe (detail id=4)
 
 Repo: `tuanhung1710/ApartmentAssignment`  
 Nhánh code: `tv2`
 
-## Phân tích nhanh 5 annotations + 1 chore
+## Phân tích 6 issues
 
-| # | Feedback | Kết luận kỹ thuật |
-|---|----------|-------------------|
-| 1 | Không thể gán chủ sở hữu | **Bug runtime** — insert/end owner fail (thường thiếu bảng `apartment_residents` hoặc SQL error bị nuốt) |
-| 2 | Đổi owner, không tenant, TV vẫn còn | **Gap nghiệp vụ** — `household_members` độc lập owner; cần BR sync/clear |
-| 3 | Gán thuê không đổi TV | **Gap nghiệp vụ** — tenant ≠ household member; cần sync hoặc UI giải thích |
-| 4 | Thiếu lịch sử gán owner/thuê | **Bug/ops** — `writeHistory` fail im lặng / chưa có bảng `apartment_history` |
-| 5 | Gỡ TV phải biến mất | **Bug vs spec cũ** — soft delete + vẫn list inactive; cần hard delete hoặc ẩn |
-| 6 | Comment thừa | **Chore cleanup** |
+| # | Feedback Vibe | Kết luận |
+|---|---------------|----------|
+| 1 | Không thể gán chủ sở hữu | **Bug runtime** assign-owner (DB/UNIQUE/form hidden) |
+| 2 | Đổi owner, không tenant, TV vẫn còn | **Bug nghiệp vụ** — chưa clear household khi đổi owner |
+| 3 | Gán thuê mà TV không đổi | **Bug** — sync `ensureActiveMember` không hiệu lực / im lặng |
+| 4 | Thiếu lịch sử gán owner/thuê… | **Bug/ops** — `apartment_history` / `writeHistory` fail |
+| 5 | Gỡ phải xóa khỏi thành viên hộ | **Bug vs code** — remove-owner/tenant cố ý không đụng TV |
+| 6 | Comment thừa (vd. US-APT-01 list tối thiểu) | **Chore cleanup** |
 
-## Cách 1 — Script (cần token)
+## Cách tạo issues
 
-1. Tạo Personal Access Token (repo scope) hoặc:
-   ```bash
-   gh auth login
-   ```
-2. Chạy (Git Bash, tại root project):
+### 1) Đăng nhập GitHub CLI (bắt buộc 1 lần)
 
 ```bash
-export GH_TOKEN=ghp_xxx   # nếu không dùng gh auth
+gh auth login
+```
+
+### 2) Chạy script
+
+```bash
 bash docs/github-issues/create-issues.sh
 ```
 
-## Cách 2 — Tạo tay trên GitHub
+### 3) Tạo tay
 
 Repo → **Issues** → New issue  
-Copy title + body từ từng file `01-...md` … `06-...md`.
+Copy title + body từ `01-...md` … `06-...md`.
 
 ## Files
 
@@ -39,7 +40,7 @@ docs/github-issues/01-bug-assign-owner-fail.md
 docs/github-issues/02-owner-change-should-not-keep-stale-household-expectation.md
 docs/github-issues/03-assign-tenant-does-not-update-household-members.md
 docs/github-issues/04-missing-history-on-assign-owner-tenant.md
-docs/github-issues/05-remove-member-should-hard-delete-from-household.md
+docs/github-issues/05-remove-should-clear-household-member.md
 docs/github-issues/06-cleanup-redundant-comments.md
 docs/github-issues/create-issues.sh
 ```

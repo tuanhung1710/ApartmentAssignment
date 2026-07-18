@@ -5,9 +5,8 @@ chore: Dọn comment thừa / outdated trong module apartment
 `chore`, `cleanup`, `debt`
 
 ## Body
-
 ### Mô tả
-Code có nhiều comment class/method **outdated**, ví dụ:
+Code còn nhiều comment class/method **outdated / thừa**, ví dụ:
 
 ```java
 /**
@@ -15,17 +14,24 @@ Code có nhiều comment class/method **outdated**, ví dụ:
  */
 ```
 
-Trong khi `ApartmentDAO` đã có filter/sort/page, update, status, delete…
+Trong khi `ApartmentDAO` đã filter/sort/page, update status, delete, reconcile occupancy…
+
+Tương tự:
+- Header Controller “UC-APT-01..10 / List TV + export” trong khi UC-10 đã gỡ
+- `edit-member.jsp` còn text “soft delete” dù remove đã hard delete
+- Comment dài lặp BR đã có trong `coding-standards.md` / docs UC
 
 ### Scope
 - `ApartmentDAO`, `ApartmentResidentDAO`, `HouseholdMemberDAO`, `ApartmentHistoryDAO`
-- Comment header Controller lặp / không khớp hiện trạng
-- Giữ JavaDoc rule không trivial (return -1, BR)
+- `ApartmentController` class/method javadoc lệch hiện trạng
+- JSP notes outdated (soft delete, list TV global)
 
 ### Expected
-- Comment ngắn, đúng hiện trạng; xóa essay thừa
-- Không đổi logic
+- Comment ngắn, đúng hiện trạng
+- Xóa essay / comment copy-paste thừa
+- **Không** đổi logic nghiệp vụ
 
 ### Acceptance
-- [ ] Không còn “list tối thiểu / chỉ US-APT-01” khi đã full CRUD
-- [ ] Build không đổi hành vi
+- [ ] Không còn “list tối thiểu / chỉ US-APT-01” khi đã full module
+- [ ] Không còn mô tả soft-delete TV trên UI nếu hard delete
+- [ ] Build/hành vi không đổi

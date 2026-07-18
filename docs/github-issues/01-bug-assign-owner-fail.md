@@ -1,33 +1,38 @@
 ## Title
-bug: Gán/đổi chủ sở hữu báo lỗi (assign-owner id=4)
+bug: Gán/đổi chủ sở hữu báo "Không thể gán chủ sở hữu. Vui lòng thử lại."
 
 ## Labels
 `bug`, `apartment`, `uc-apt-06`
 
 ## Body
+### Vibe annotation #1
+- **Page:** `/ApartmentManagement/apartment?action=assign-owner&id=4`
+- **Selector:** `div[role="alert"]`
+- **Message:** `Không thể gán chủ sở hữu. Vui lòng thử lại.`
 
-### Mô tả (Vibe annotation #1)
-**Page:** `/ApartmentManagement/apartment?action=assign-owner&id=4`  
-**Element:** `div[role="alert"]`  
-**Message:** `Không thể gán chủ sở hữu. Vui lòng thử lại.` (hoặc message lỗi SQL chi tiết sau fix)
+### Phân tích (code hiện tại)
+Luồng: `ApartmentController.handleAssignOwner` → `endCurrentOwners` / `deleteCurrent*` / `insertOwner`.
 
-### Root cause
-Luồng: `handleAssignOwner` → `endCurrentOwners` / `insertOwner`.
+Message generic khi `insertOwner` / end owner trả `< 0`. Nguyên nhân hay gặp:
+1. **DB chưa đủ bảng** `apartment_residents` → chạy `database/schema.sql` + `seed.sql`
+2. **UNIQUE** `UQ_ar_apartment_user_role` (apt + user + role + is_current) khi đổi owner / gán lại
+3. **FK user** không tồn tại / user inactive
+4. Form UX mới (search select) gửi thiếu `userId` / `personSource` → fail validate hoặc insert
 
-Thường gặp:
-1. Bảng `apartment_residents` **chưa tạo** → chạy `database/apartment-detail-tables.sql`
-2. DB connection fail / FK user không tồn tại
-3. Lỗi SQL bị che bằng message generic (đã cải thiện `getLastError()`)
+DAO đã có `getLastError()` — UI đôi khi vẫn chỉ hiện generic nếu controller không forward `detail`.
 
 ### Code
-- `ApartmentController.handleAssignOwner`
-- `ApartmentResidentDAO.insertOwner` / `endCurrentOwners` / `getLastError`
+- `ApartmentController.handleAssignOwner` / `handleAssignOwnerForm`
+- `ApartmentResidentDAO.insertOwner` / `endCurrentOwners` / `deleteCurrentOwners` / `getLastError`
+- `web/.../assign-owner.jsp` (search + hidden fields)
 
 ### Expected
-- Gán/đổi owner thành công khi DB đủ bảng + user active
-- Lỗi DB hiện message rõ (thiếu bảng / FK), không chỉ generic
+- Gán/đổi owner thành công khi DB OK + user active
+- Lỗi DB hiện message rõ (thiếu bảng / UNIQUE / FK), không chỉ generic
+- Form search luôn gửi đủ `userId` hoặc `personSource=new` + fields
 
 ### Acceptance
-- [ ] Gán owner lần đầu OK
-- [ ] Đổi owner: old `is_current=0`, new current
-- [ ] Thiếu bảng → message hướng dẫn chạy SQL
+- [ ] Gán owner lần đầu OK (OWNED)
+- [ ] Đổi owner: old closed/deleted current, new current
+- [ ] RENTED: gán chủ nhà (landlord) OK, không bắt TV hộ
+- [ ] Fail → flash/error chi tiết từ `getLastError()`
