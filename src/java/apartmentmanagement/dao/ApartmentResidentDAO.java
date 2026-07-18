@@ -52,7 +52,7 @@ public class ApartmentResidentDAO extends DBContext {
                 .createdAt(rs.getTimestamp("created_at"))
                 .username(safeGetString(rs, "username"))
                 .fullName(safeGetString(rs, "full_name"))
-                .apartmentCode(null)
+                .apartmentCode(safeGetString(rs, "apartment_code"))
                 .build();
     }
 
@@ -63,6 +63,46 @@ public class ApartmentResidentDAO extends DBContext {
         } catch (SQLException e) {
             return null;
         }
+    }
+
+    /**
+     * Cư dân hiện tại của user (ưu tiên TENANT_REP), kèm mã căn.
+     * Dùng cho module request (cư dân tạo/xem yêu cầu theo căn đang ở).
+     *
+     * @param userId id user
+     * @return bản ghi current hoặc null
+     */
+    public ApartmentResident findCurrentByUserId(int userId) {
+        String sql = "SELECT TOP 1 ar.*, a.apartment_code "
+                + "FROM apartment_residents ar "
+                + "INNER JOIN apartments a ON a.apartment_id = ar.apartment_id "
+                + "WHERE ar.user_id = ? AND ar.is_current = 1 "
+                + "ORDER BY CASE ar.role_in_apartment WHEN N'TENANT_REP' THEN 0 ELSE 1 END, ar.id DESC";
+        try {
+            connection = getConnection();
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, userId);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return getFromResultSet(resultSet);
+            }
+        } catch (SQLException e) {
+            System.out.println("ApartmentResidentDAO.findCurrentByUserId error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return null;
+    }
+
+    /**
+     * apartment_id hiện tại của user, hoặc null nếu chưa gán căn.
+     *
+     * @param userId id user
+     * @return apartmentId hoặc null
+     */
+    public Integer findCurrentApartmentId(int userId) {
+        ApartmentResident ar = findCurrentByUserId(userId);
+        return ar == null ? null : ar.getApartmentId();
     }
 
     /**

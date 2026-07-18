@@ -25,4 +25,11 @@ public class RequestHistory {
 
     /** Họ tên người thay đổi (JOIN hiển thị). */
     private String changedByName;
+    /** Vai trò người thay đổi (JOIN hiển thị / chat). */
+    private String changedByRole;
+
+    /** Comment/chat: oldStatus == newStatus (không đổi trạng thái ticket). */
+    public boolean isComment() {
+        return oldStatus != null && oldStatus.equals(newStatus);
+    }
 }

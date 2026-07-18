@@ -74,6 +74,19 @@ public class AuthFilter implements Filter {
                 AppConstants.ROLE_STAFF,
                 AppConstants.ROLE_RESIDENT
         ));
+        // HTTP API comment + WebSocket chat (ACL chi tiết trong RequestChatService)
+        ROLE_RULES.put("/request-comment", set(
+                AppConstants.ROLE_ADMIN,
+                AppConstants.ROLE_MANAGER,
+                AppConstants.ROLE_STAFF,
+                AppConstants.ROLE_RESIDENT
+        ));
+        ROLE_RULES.put("/ws/request-chat", set(
+                AppConstants.ROLE_ADMIN,
+                AppConstants.ROLE_MANAGER,
+                AppConstants.ROLE_STAFF,
+                AppConstants.ROLE_RESIDENT
+        ));
         ROLE_RULES.put("/dashboard", set(
                 AppConstants.ROLE_ADMIN,
                 AppConstants.ROLE_MANAGER,
