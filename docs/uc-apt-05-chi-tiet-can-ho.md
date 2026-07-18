@@ -136,7 +136,7 @@ Empty state từng block: text muted + icon.
 | Layer | File |
 |-------|------|
 | Design | `docs/uc-apt-05-chi-tiet-can-ho.md` |
-| SQL phụ | `database/apartment-detail-tables.sql` |
+| SQL | `database/schema.sql` (+ `seed.sql` nếu cần demo) |
 | DAO | `ApartmentResidentDAO`, `HouseholdMemberDAO`, `ApartmentHistoryDAO` + `ApartmentDAO.findById` |
 | Controller | `handleDetail` · `action=detail` |
 | View | `detail.jsp` · link từ `list.jsp` |

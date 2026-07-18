@@ -44,8 +44,9 @@
 | **BR-T10** | User gán phải active; không gán trùng user đã là tenant/rep **hiện tại** cùng role trên căn. |
 | **BR-T11** | Chỉ ADMIN/MANAGER. |
 | **BR-T12** | Ghi history: `ASSIGN_TENANT` / `CHANGE_TENANT_REP`. |
-| **BR-T13** | Không tự đổi `occupancy_type` căn (RENTED/OWNED). |
+| **BR-T13** | Có tenant → sync occupancy `RENTED` (giữ OWNER nếu có = chủ nhà). |
 | **BR-T14** | Form gán: **User có sẵn** hoặc **Người mới** (tạo RESIDENT + gán). Gợi ý từ thành viên hộ. Pass mặc định `123456`. |
+| **BR-T15** | Người được gán thuê **phải xuất hiện** trong thành viên hộ: nếu chưa có (trùng họ tên) → auto thêm TV vai trò `Thành viên`; đã có → không thêm trùng. |
 
 ### Đại diện thuê vs người thuê
 

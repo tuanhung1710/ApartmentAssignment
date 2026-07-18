@@ -264,4 +264,4 @@ CREATE TABLE apartments (
 | Controller | `ApartmentController.java` |
 | View | `web/WEB-INF/views/apartment/form.jsp`, `list.jsp` |
 | Auth | `AuthFilter` path `/apartment` + check role create trong controller |
-| SQL | `database/apartments.sql` (tạo bảng nếu chưa có) |
+| SQL | `database/schema.sql` (bảng `apartments` nằm trong schema thống nhất) |

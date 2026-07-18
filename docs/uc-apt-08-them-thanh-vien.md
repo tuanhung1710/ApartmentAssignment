@@ -21,7 +21,7 @@
 
 1. Đã đăng nhập; role **ADMIN** hoặc **MANAGER**.
 2. Căn hộ tồn tại.
-3. Bảng `household_members` đã tạo (`apartment-detail-tables.sql`).
+3. Bảng `household_members` đã có trong `database/schema.sql`.
 
 ---
 
@@ -41,6 +41,8 @@
 | **BR-M10** | CCCD trùng trên **cùng căn** (active) → cảnh báo/chặn (MVP: **chặn**). |
 | **BR-M11** | Ghi history căn: `ADD_MEMBER`. |
 | **BR-M12** | Không xóa owner/tenant khi thêm member — bảng độc lập. |
+| **BR-M13** | **Thứ tự có người ở:** OWNED → gán OWNER trước; RENTED → gán OWNER + TENANT/REP trước; VACANT → chưa cho thêm TV. |
+| **BR-M14** | OWNED: OWNER auto vào TV (Chủ hộ). RENTED: người thuê/đại diện auto vào TV; **chủ nhà (landlord) không vào TV**. |
 
 ---
 

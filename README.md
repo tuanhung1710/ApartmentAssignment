@@ -4,7 +4,7 @@ Hệ thống quản lý & xử lý yêu cầu căn hộ chung cư.
 
 **Stack:** NetBeans Ant · Tomcat 10.1 · JDK 17 · Jakarta Servlet/JSP · SQL Server · JDBC · Lombok · JSTL · Bootstrap 5
 
-**Merge:** platform TV1 (auth, building, dashboard, schema/seed) + module căn hộ TV2 (UC-APT-01…10, occupancy VACANT/N/A, history, members).
+**Merge:** platform TV1 (auth, building, dashboard, schema/seed) + module căn hộ TV2 (UC-APT-01…09, occupancy VACANT/N/A, history; TV hộ quản trên chi tiết căn).
 
 ---
 
@@ -14,9 +14,7 @@ Hệ thống quản lý & xử lý yêu cầu căn hộ chung cư.
 tv2/
 ├── database/
 │   ├── schema.sql              # ★ SOURCE OF TRUTH — drop/create DB + bảng (TV1+TV2)
-│   ├── seed.sql                # ★ Data demo đầy đủ (282 căn, fees, requests…)
-│   ├── migrate-*.sql           # Nâng cấp DB cũ (không drop)
-│   └── apartments.sql / users.sql / …  # script legacy TV2 (tham khảo)
+│   └── seed.sql                # ★ Data demo (users, buildings, 282 căn, owner/tenant, fees…)
 ├── docs/                       # UC/BR module căn hộ (TV2)
 ├── coding-standards.md
 ├── src/java/apartmentmanagement/
@@ -39,14 +37,12 @@ tv2/
 
 ### Máy mới / reset sạch
 
-1. Chạy **`database/schema.sql`** (DROP + CREATE DB `ApartmentManagement`)
-2. Chạy **`database/seed.sql`**
+Chỉ 2 file (không dùng migrate/legacy rời):
 
-### DB TV2 cũ (đã có apartments, chưa buildings)
+1. **`database/schema.sql`** — DROP + CREATE DB `ApartmentManagement` + toàn bộ bảng
+2. **`database/seed.sql`** — data demo
 
-1. `database/migrate-apartment-occupancy-vacant-na.sql` (nếu CHECK occupancy còn OWNED/RENTED)
-2. `database/migrate-reconcile-occupancy.sql`
-3. `database/migrate-add-buildings-and-building-id.sql`
+DB lệch / cũ: **chạy lại schema + seed** (reset sạch) thay vì migrate lẻ.
 
 ### Connection
 
@@ -86,7 +82,7 @@ Create / init-floor mặc định: **INACTIVE + N/A**.
 | `/dashboard` | Dashboard theo role |
 | `/building?action=list` | CRUD tòa nhà |
 | `/apartment?action=list` | Danh sách căn hộ (TV2) |
-| `/apartment?action=members` | Thành viên hộ |
+| `/apartment?action=detail&id=` | Chi tiết căn (owner/thuê + thành viên hộ) |
 | `/profile` | Hồ sơ |
 
 ---

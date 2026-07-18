@@ -95,7 +95,7 @@ Tổng hợp rule từ UC-APT-01 … 10 + Permission Matrix.
 | BR-R09 | Gán owner sync 1 dòng TV **Chủ hộ**; xóa dòng Chủ hộ = gỡ owner tương ứng. |
 | BR-R08 | Update không đổi `apartment_id`. |
 | BR-R09 | Chỉ ADMIN/MANAGER add/edit/remove. |
-| BR-R10 | STAFF xem list/detail TV; RESIDENT không quản lý list TV toàn tòa. |
+| BR-R10 | STAFF xem TV trên detail căn (read-only); không còn list TV global. RESIDENT không quản lý TV. |
 
 ---
 
@@ -115,7 +115,7 @@ Tổng hợp rule từ UC-APT-01 … 10 + Permission Matrix.
 | ID | Rule |
 |----|------|
 | BR-P01 | ADMIN ≈ MANAGER trên module căn (write). |
-| BR-P02 | STAFF = read list/detail/members (không export, không write). |
+| BR-P02 | STAFF = read list/detail căn + TV trên detail (không write). |
 | BR-P03 | RESIDENT = detail căn được gán current; không list quản trị. |
 | BR-P04 | Mọi write check `canManage` trong controller. |
 | BR-P05 | Chi tiết đầy đủ: `docs/permission-matrix-apartment.md`. |

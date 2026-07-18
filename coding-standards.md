@@ -735,7 +735,8 @@ private static final String[] RELATIONSHIP_OPTIONS = {
     "Chủ hộ", "Thành viên"
 };
 // validate: isValidMemberRole(relationship) — reject mọi giá trị khác
-// UI label: "Vai trò" (add-member / edit-member / list / detail)
+// UI label: "Vai trò" (add-member / edit-member / detail căn)
+// Không còn màn list TV global (UC-APT-10 đã gỡ)
 // DAO ensureActiveMember: default fallback = "Thành viên" (không dùng "Khác")
 ```
 
@@ -757,10 +758,20 @@ Kích hoạt (activate.jsp):
 Auto-sync (sau gán/gỡ owner·tenant·TV):
   có tenant → RENTED
   có owner  → OWNED
-  có TV hộ  → OWNED
+  có TV hộ  → OWNED (trừ căn đang RENTED — giữ RENTED)
   trống:
     · forceEmptyToVacant=true  → VACANT
     · false → giữ OWNED/RENTED đã chọn; còn lại VACANT
+
+VACANT → có người ở (bắt buộc đổi loại hình trước):
+  1) Sửa căn: chọn occupancy OWNED hoặc RENTED (không gán khi còn VACANT)
+  2) OWNED: gán OWNER → owner auto TV (Chủ hộ) → Thêm TV khác
+  3) RENTED: gán người thuê (TENANT/REP) → tenant auto TV → Thêm TV khác
+     chủ nhà OWNER = landlord — KHÔNG vào TV; form gán owner RENTED:
+     · nhãn "Gán chủ nhà" (không "chủ sở hữu mới")
+     · chỉ search user hệ thống / tạo mới — cấm chọn thành viên hộ
+  Controller chặn: getAssignOwnerBlockReason / getAssignTenantBlockReason / getAddMemberBlockReason
+  Detail: VACANT ẩn nút gán; hiện hướng dẫn Sửa loại hình
 
 reconcileAllOccupancy (mở list):
   không ép ACTIVE trống OWNED/RENTED về VACANT
@@ -922,7 +933,7 @@ git push -u origin tv2
 | `package javax.servlet does not exist` / lệch API | Dùng javax hoặc Tomcat 9 | Đổi `jakarta.*`, Tomcat 10 |
 | `Cannot find symbol getXxx()` trên model | Lombok chưa process | Bật Annotation Processing, rebuild |
 | `NullPointerException` ở DAO | `getConnection()` null | Check SQL Server + DBContext pass |
-| `Invalid object name 'apartments'` | Chưa chạy SQL tạo bảng | Chạy `database/*.sql` |
+| `Invalid object name 'apartments'` | Chưa chạy SQL tạo bảng | Chạy `database/schema.sql` rồi `database/seed.sql` |
 | Form submit không vào case | Sai `name="action"` / method GET-POST | Kiểm tra hidden action + doPost |
 | Input luôn rỗng sau lỗi | Không set `form` attribute | `request.setAttribute("form", form)` |
 | Thêm 2 lần khi F5 | Dùng forward sau insert | Đổi thành redirect |

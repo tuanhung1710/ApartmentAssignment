@@ -6,7 +6,7 @@
 | **Tên** | Update / Remove household member (soft delete) |
 | **Actor** | Admin, Manager |
 | **URL** | `GET/POST edit-member` · `POST remove-member` |
-| **Lưu ý** | Xóa TV = hard delete `household_members`. Nếu TV đó là chủ sở hữu (Chủ hộ / trùng tên owner) → **gỡ luôn OWNER**. |
+| **Lưu ý** | Xóa TV = hard delete `household_members`. Nếu TV đó là chủ sở hữu / đại diện thuê / người thuê (trùng tên) → **gỡ luôn** gán tương ứng trong `apartment_residents`. |
 | **Bảng** | `household_members` |
 | **Standards** | `coding-standards.md` |
 
@@ -34,13 +34,13 @@
 | **BR-U02** | **Update:** sửa fullName, **vai trò** (`relationship`: chỉ `Chủ hộ` \| `Thành viên`), phone, CCCD, DOB; không đổi `apartment_id`. |
 | **BR-U03** | **Remove = Hard Delete:** `DELETE` row `household_members` (feedback UI: biến mất khỏi list). |
 | **BR-U04** | Detail chỉ list TV **active** / còn tồn tại — sau Xóa không còn tên. |
-| **BR-U05** | Nếu TV xóa **là chủ sở hữu** (quan hệ `Chủ hộ` hoặc trùng tên owner hiện tại) → gỡ luôn OWNER (`deleteCurrentOwners`). TV khác → chỉ xóa household. |
+| **BR-U05** | Nếu TV xóa **là chủ sở hữu** (quan hệ `Chủ hộ` hoặc trùng tên owner) → gỡ OWNER. Nếu **là đại diện thuê / người thuê** (trùng tên) → **chỉ gỡ đúng tên đó** khỏi gán thuê (`apartment_residents`), để trống cho gán lại; không đụng tenant khác. TV khác → chỉ xóa household. |
 | **BR-U06** | Validate update giống UC-08 (tên, vai trò Chủ hộ/Thành viên, CCCD, phone, DOB). |
 | **BR-U07** | CCCD trùng: chặn nếu trùng member **active khác** trên cùng căn (trừ chính mình). |
 | **BR-U08** | Không cho update/remove member của căn khác (check apartment_id). |
 | **BR-U09** | Member không tồn tại → “Không tìm thấy thành viên.” |
 | **BR-U10** | **Audit Log:** Console + `apartment_history` `UPDATE_MEMBER` / `REMOVE_MEMBER`. |
-| **BR-U11** | Xóa TV là owner → cascade gỡ OWNER; xóa TV thường → chỉ household. |
+| **BR-U11** | Xóa TV là owner → cascade gỡ OWNER; là tenant/tenant rep → cascade gỡ đúng user đó; TV thường → chỉ household. |
 
 ### Update vs Remove
 
@@ -49,7 +49,9 @@
 | **Update** | `UPDATE` field thông tin TV |
 | **Remove / Xóa TV thường** | `DELETE` row `household_members` |
 | **Remove / Xóa TV = owner** | `DELETE` household + `DELETE` OWNER current |
+| **Remove / Xóa TV = tenant/rep** | `DELETE` household + gỡ đúng user khỏi gán thuê (mục thuê để trống / gán lại) |
 | **Gỡ owner** | Vẫn có nút riêng `remove-owner` |
+| **Gỡ tenant** | Vẫn có nút riêng `remove-tenant` |
 
 ---
 
@@ -72,6 +74,7 @@
 | member tồn tại + đúng căn | Không tìm thấy… |
 | Quyền ADMIN/MANAGER | Không có quyền… |
 | TV = owner | Flash: *Đã xóa … và gỡ luôn vai trò chủ sở hữu…* |
+| TV = tenant/rep | Flash: *Đã xóa … và gỡ tên khỏi gán thuê (để trống, có thể gán lại).* |
 | TV thường | Flash: *Đã xóa thành viên … khỏi danh sách hộ.* |
 
 ---

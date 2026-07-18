@@ -13,7 +13,7 @@
 | Nhánh local | `tv2` (đã tạo; push GitHub có thể chưa được nếu thiếu quyền) |
 | Stack | NetBeans Ant · Tomcat **10** · Jakarta · SQL Server · JDBC · Lombok · JSP |
 | Module bạn | **TV2 – Căn hộ** |
-| UC đã làm | **UC-01..10** (căn + owner/tenant + TV + list TV) · Permission matrix · BR tổng hợp |
+| UC đã làm | **UC-01..09** (căn + owner/tenant + TV trên detail) · Permission matrix · BR tổng hợp |
 
 ---
 
@@ -25,7 +25,7 @@
 - [x] `ApartmentController` (CRUD-ish + list filter/sort/page)
 - [x] JSP list đầy đủ filter · search · sort · pagination · empty · loading
 - [x] Constants occupancy/status
-- [x] SQL `database/apartments.sql`
+- [x] SQL `database/schema.sql` + `database/seed.sql`
 
 ### Docs (trong `docs/`)
 - [x] `user-story-them-can-ho.md` — UC-APT-01
@@ -38,14 +38,14 @@
 - [x] `uc-apt-07-gan-nguoi-thue.md` — UC-APT-07
 - [x] `uc-apt-08-them-thanh-vien.md` — UC-APT-08
 - [x] `uc-apt-09-cap-nhat-xoa-thanh-vien.md` — UC-APT-09
-- [x] `uc-apt-10-danh-sach-thanh-vien.md` — UC-APT-10
+- [x] ~~`uc-apt-10-danh-sach-thanh-vien.md`~~ — **đã gỡ UI/action** (TV chỉ trên detail căn)
 - [x] `permission-matrix-apartment.md` — Task 14
 - [x] `business-rules-apartment-module.md` — Task 15
 - [x] `coding-standards.md` (root)
 - [x] `LAM-TIEP.md` — file này
 
 ### Chưa xong / việc tiếp
-- [ ] Run app + smoke members list / export / full module
+- [ ] Run app + smoke full module (không còn list TV global)
 - [x] UC **Sửa / cập nhật căn hộ** (UC-APT-02)
 - [x] UC **Vô hiệu hóa / Xóa** căn hộ (UC-APT-03)
 - [x] UC **Danh sách căn hộ** (UC-APT-04)
@@ -53,8 +53,8 @@
 - [x] UC **Gán chủ sở hữu** (UC-APT-06)
 - [x] UC **Gán người thuê** (UC-APT-07)
 - [x] UC **Thêm thành viên** (UC-APT-08)
-- [x] UC **Cập nhật / Soft delete thành viên** (UC-APT-09)
-- [x] UC **Danh sách thành viên + Export** (UC-APT-10)
+- [x] UC **Cập nhật / Xóa thành viên** (UC-APT-09)
+- [x] ~~UC **Danh sách thành viên + Export** (UC-APT-10)~~ — đã bỏ
 - [x] Permission Matrix (Task 14)
 - [x] Business Rules tổng hợp (Task 15)
 - [ ] Gán cư dân / Căn hộ của tôi (nếu đề yêu cầu)
@@ -87,10 +87,9 @@ Phải thấy đang ở `tv2`.
 ## 4. Làm tiếp hôm nay — chọn 1 hướng
 
 ### Hướng A — Chưa test được app
-1. Chạy `database/apartments.sql`
-2. (Nếu login fail) chạy schema/seed users từ team
-3. Sửa `DBContext` → Run File → Connected OK
-4. Run app → smoke test trong `test-cases-them-can-ho.md` mục D:
+1. Chạy `database/schema.sql` rồi `database/seed.sql`
+2. Sửa `DBContext` (password máy) → Run File → Connected OK
+3. Run app → smoke test trong `test-cases-them-can-ho.md` mục D:
    - TC-001, 101, 103, 109, 116
 
 ### Hướng B — App đã chạy OK → code UC mới
