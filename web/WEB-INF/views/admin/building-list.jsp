@@ -189,21 +189,10 @@
                     <c:param name="status" value="${filterStatus}"/>
                 </c:if>
             </c:url>
-            <nav aria-label="Phân trang tòa nhà">
-                <ul class="pagination pagination-sm mb-0 justify-content-center flex-wrap">
-                    <li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
-                        <a class="page-link" href="${paginationUrl}&page=${currentPage - 1}">Trước</a>
-                    </li>
-                    <c:forEach begin="1" end="${totalPages}" var="i">
-                        <li class="page-item ${i == currentPage ? 'active' : ''}">
-                            <a class="page-link" href="${paginationUrl}&page=${i}">${i}</a>
-                        </li>
-                    </c:forEach>
-                    <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
-                        <a class="page-link" href="${paginationUrl}&page=${currentPage + 1}">Sau</a>
-                    </li>
-                </ul>
-            </nav>
+            <c:set var="pageParam" value="page"/>
+            <c:set var="paginationLabel" value="Phân trang tòa nhà"/>
+            <c:set var="paginationAlign" value="justify-content-center"/>
+            <%@ include file="/WEB-INF/views/common/pagination.jsp" %>
         </div>
     </c:if>
 </div>

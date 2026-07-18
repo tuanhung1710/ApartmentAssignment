@@ -400,7 +400,7 @@
 
     <c:if test="${aptTotalPages > 1}">
         <div class="card-footer bg-white">
-            <c:url value="/building" var="aptPaginationUrl">
+            <c:url value="/building" var="paginationUrl">
                 <c:param name="action" value="detail"/>
                 <c:param name="id" value="${building.buildingId}"/>
                 <c:if test="${not empty filterAptStatus}">
@@ -413,21 +413,12 @@
                     <c:param name="aptQ" value="${filterAptQ}"/>
                 </c:if>
             </c:url>
-            <nav aria-label="Phân trang căn hộ tòa">
-                <ul class="pagination pagination-sm mb-0 justify-content-center flex-wrap">
-                    <li class="page-item ${aptCurrentPage <= 1 ? 'disabled' : ''}">
-                        <a class="page-link" href="${aptPaginationUrl}&aptPage=${aptCurrentPage - 1}">Trước</a>
-                    </li>
-                    <c:forEach begin="1" end="${aptTotalPages}" var="i">
-                        <li class="page-item ${i == aptCurrentPage ? 'active' : ''}">
-                            <a class="page-link" href="${aptPaginationUrl}&aptPage=${i}">${i}</a>
-                        </li>
-                    </c:forEach>
-                    <li class="page-item ${aptCurrentPage >= aptTotalPages ? 'disabled' : ''}">
-                        <a class="page-link" href="${aptPaginationUrl}&aptPage=${aptCurrentPage + 1}">Sau</a>
-                    </li>
-                </ul>
-            </nav>
+            <c:set var="currentPage" value="${aptCurrentPage}"/>
+            <c:set var="totalPages" value="${aptTotalPages}"/>
+            <c:set var="pageParam" value="aptPage"/>
+            <c:set var="paginationLabel" value="Phân trang căn hộ tòa"/>
+            <c:set var="paginationAlign" value="justify-content-center"/>
+            <%@ include file="/WEB-INF/views/common/pagination.jsp" %>
         </div>
     </c:if>
 </div>
