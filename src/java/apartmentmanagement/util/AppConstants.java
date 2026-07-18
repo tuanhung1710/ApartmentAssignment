@@ -47,6 +47,21 @@ public final class AppConstants {
     public static final String FEE_PAID = "PAID";
     public static final String FEE_UNPAID = "UNPAID";
 
+    public static final String FEE_STATUS_DRAFT = "DRAFT";
+    public static final String FEE_STATUS_ASSIGNED = "ASSIGNED";
+    public static final String FEE_STATUS_PUBLISHED = "PUBLISHED";
+
+    public static final String ASSIGNMENT_UNPAID = "UNPAID";
+    public static final String ASSIGNMENT_PAID = "PAID";
+
+    public static final String FEE_SCOPE_ALL = "ALL";
+    public static final String FEE_SCOPE_BUILDING = "BUILDING";
+    public static final String FEE_SCOPE_FLOOR = "FLOOR";
+    public static final String FEE_SCOPE_APARTMENT = "APARTMENT";
+
+    public static final String FEE_TYPE_MONTHLY = "MONTHLY";
+    public static final String FEE_TYPE_ONE_TIME = "ONE_TIME";
+
     /** Building / apartment lifecycle */
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_INACTIVE = "INACTIVE";
