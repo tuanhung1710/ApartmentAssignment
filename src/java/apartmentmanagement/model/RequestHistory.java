@@ -19,6 +19,11 @@ public class RequestHistory {
     private String note;
     private Timestamp createdAt;
 
-    // display
+    // display helpers (JOIN flat fields)
     private String changedByName;
+    private String changedByRole;
+
+    public boolean isComment() {
+        return oldStatus != null && oldStatus.equals(newStatus);
+    }
 }

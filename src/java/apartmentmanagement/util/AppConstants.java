@@ -1,14 +1,10 @@
 package apartmentmanagement.util;
 
-/**
- * Hằng số dùng chung toàn hệ thống.
- */
 public final class AppConstants {
 
     private AppConstants() {
     }
 
-    /** Session key lưu user đã đăng nhập */
     public static final String SESSION_USER = "currentUser";
 
     /** Flash message keys (session) */
@@ -44,4 +40,6 @@ public final class AppConstants {
     public static final String FEE_UNPAID = "UNPAID";
 
     public static final int DEFAULT_PAGE_SIZE = 10;
+
+    public static final String DEFAULT_PASSWORD = "123456";
 }

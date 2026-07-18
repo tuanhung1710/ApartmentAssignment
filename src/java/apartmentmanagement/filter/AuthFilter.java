@@ -18,11 +18,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Bảo vệ URL theo session + role.
- * Public: /auth (login), assets tĩnh.
- * Role map mở rộng khi module thêm URL.
- */
 @WebFilter(filterName = "AuthFilter", urlPatterns = {"/*"})
 public class AuthFilter implements Filter {
 
@@ -38,7 +33,6 @@ public class AuthFilter implements Filter {
             "/images/"
     ));
 
-    /** path prefix -> roles được phép (rỗng = mọi user đã login) */
     private static final Map<String, Set<String>> ROLE_RULES = new HashMap<>();
 
     static {
@@ -56,6 +50,12 @@ public class AuthFilter implements Filter {
                 AppConstants.ROLE_RESIDENT
         ));
         ROLE_RULES.put("/request", set(
+                AppConstants.ROLE_ADMIN,
+                AppConstants.ROLE_MANAGER,
+                AppConstants.ROLE_STAFF,
+                AppConstants.ROLE_RESIDENT
+        ));
+        ROLE_RULES.put("/request-comment", set(
                 AppConstants.ROLE_ADMIN,
                 AppConstants.ROLE_MANAGER,
                 AppConstants.ROLE_STAFF,
@@ -122,7 +122,6 @@ public class AuthFilter implements Filter {
                 return true;
             }
         }
-        // file tĩnh phổ biến
         return path.endsWith(".css")
                 || path.endsWith(".js")
                 || path.endsWith(".png")
@@ -141,7 +140,6 @@ public class AuthFilter implements Filter {
                 return entry.getValue().contains(role);
             }
         }
-        // path chưa khai báo rule: cho user đã login (MVP)
         return true;
     }
 }

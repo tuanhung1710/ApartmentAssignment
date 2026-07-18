@@ -12,9 +12,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 
-/**
- * Auth gộp: login, logout, profile, đổi mật khẩu.
- */
 @WebServlet(name = "AuthenController", urlPatterns = {"/auth", "/profile"})
 public class AuthenController extends HttpServlet {
 
@@ -106,7 +103,6 @@ public class AuthenController extends HttpServlet {
             return;
         }
 
-        // không lưu password trong session
         user.setPassword(null);
         HttpSession session = request.getSession(true);
         session.setAttribute(AppConstants.SESSION_USER, user);
@@ -171,6 +167,24 @@ public class AuthenController extends HttpServlet {
             FlashUtil.error(request, "Họ tên không được để trống.");
             response.sendRedirect(request.getContextPath() + "/profile?action=edit-profile");
             return;
+        }
+        if (email != null && !email.isEmpty()) {
+            if (email.length() > 100 || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+                FlashUtil.error(request, "Email không hợp lệ.");
+                response.sendRedirect(request.getContextPath() + "/profile?action=edit-profile");
+                return;
+            }
+        } else {
+            email = null;
+        }
+        if (phone != null && !phone.isEmpty()) {
+            if (!phone.matches("^0\\d{9}$")) {
+                FlashUtil.error(request, "Số điện thoại phải đúng 10 chữ số và bắt đầu bằng 0.");
+                response.sendRedirect(request.getContextPath() + "/profile?action=edit-profile");
+                return;
+            }
+        } else {
+            phone = null;
         }
 
         User update = User.builder()

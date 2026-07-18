@@ -22,7 +22,6 @@ public class ApartmentResident {
     private Date endDate;
     private Timestamp createdAt;
 
-    // display helpers (JOIN, không phải nested object entity)
     private String username;
     private String fullName;
     private String apartmentCode;

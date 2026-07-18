@@ -18,11 +18,18 @@
             </div>
             <div class="mb-3">
                 <label class="form-label" for="email">Email</label>
-                <input type="email" class="form-control" id="email" name="email" value="${profile.email}">
+                <input type="email" class="form-control" id="email" name="email"
+                       maxlength="100" value="${profile.email}"
+                       placeholder="email@example.com">
+                <div class="form-text">Bạn tự cập nhật · Admin chỉ xem, không sửa được</div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="phone">Số điện thoại</label>
-                <input type="text" class="form-control" id="phone" name="phone" value="${profile.phone}">
+                <input type="text" class="form-control" id="phone" name="phone"
+                       inputmode="numeric" maxlength="10" minlength="10"
+                       pattern="0[0-9]{9}" title="Đúng 10 chữ số, bắt đầu bằng 0"
+                       value="${profile.phone}" placeholder="0912345678">
+                <div class="form-text">Đúng 10 số VN (0xxxxxxxxx) · Admin chỉ xem, không sửa được</div>
             </div>
             <div class="mb-3">
                 <label class="form-label">Vai trò</label>
