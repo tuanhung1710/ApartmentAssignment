@@ -8,10 +8,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * Lớp nền JDBC cung cấp kết nối SQL Server cho các DAO.
+ * Lop nen JDBC cung cap ket noi SQL Server cho cac DAO.
  * <p>
- * Cấu hình kết nối được hardcode (không đọc {@code db.properties}).
- * Cần chỉnh {@code DB_URL}, {@code DB_USER}, {@code DB_PASSWORD} theo môi trường local trước khi chạy.
+ * Cau hinh ket noi duoc hardcode (khong doc {@code db.properties}).
+ * Can chinh {@code DB_URL}, {@code DB_USER}, {@code DB_PASSWORD} theo moi truong local truoc khi chay.
  */
 public class DBContext {
 
@@ -19,23 +19,23 @@ public class DBContext {
     protected PreparedStatement statement;
     protected ResultSet resultSet;
 
-    /** Chuỗi kết nối SQL Server – chỉnh host/port/databaseName theo máy local. */
+    /** Chuoi ket noi SQL Server – chinh host/port/databaseName theo may local. */
     private static final String DB_URL =
             "jdbc:sqlserver://localhost:1433;databaseName=ApartmentManagement;encrypt=true;trustServerCertificate=true";
     private static final String DB_USER = "sa";
     private static final String DB_PASSWORD = "123";
 
     /**
-     * Khởi tạo context; connection chỉ được mở khi gọi {@link #getConnection()}.
+     * Khoi tao context; connection chi duoc mo khi goi {@link #getConnection()}.
      */
     public DBContext() {
     }
 
     /**
-     * Mở và trả về một {@link Connection} mới tới SQL Server.
-     * Caller (DAO) chịu trách nhiệm đóng connection trong {@code finally} hoặc qua {@link #closeResources()}.
+     * Mo va tra ve mot {@link Connection} moi toi SQL Server.
+     * Caller (DAO) chiu trach nhiem dong connection trong {@code finally} hoac qua {@link #closeResources()}.
      *
-     * @return connection hợp lệ, hoặc {@code null} nếu thiếu driver / lỗi SQL
+     * @return connection hop le, hoac {@code null} neu thieu driver / loi SQL
      */
     public Connection getConnection() {
         try {
@@ -43,20 +43,20 @@ public class DBContext {
             connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
             return connection;
         } catch (ClassNotFoundException e) {
-            System.out.println("DBContext: thiếu driver JDBC SQL Server (mssql-jdbc). " + e.getMessage());
+            System.out.println("DBContext: thieu driver JDBC SQL Server (mssql-jdbc). " + e.getMessage());
             return null;
         } catch (SQLException e) {
             System.out.println("DBContext getConnection error: " + e.getMessage());
-            System.out.println("  → Kiểm tra SQL Server đang chạy, DB ApartmentManagement, user/pass trong DBContext.");
+            System.out.println("  -> Kiem tra SQL Server dang chay, DB ApartmentManagement, user/pass trong DBContext.");
             return null;
         }
     }
 
     /**
-     * Kiểm tra nhanh khả năng kết nối DB (dùng cho Auth / health check).
-     * Tự đóng connection tạm sau khi kiểm tra.
+     * Kiem tra nhanh kha nang ket noi DB (dung cho Auth / health check).
+     * Tu dong connection tam sau khi kiem tra.
      *
-     * @return {@code true} nếu mở được connection và connection chưa đóng
+     * @return {@code true} neu mo duoc connection va connection chua dong
      */
     public boolean testConnection() {
         Connection c = null;
@@ -78,9 +78,9 @@ public class DBContext {
     }
 
     /**
-     * Đóng lần lượt {@link ResultSet}, {@link PreparedStatement} và {@link Connection}
-     * đang giữ trên instance; bỏ qua lỗi đóng từng tài nguyên để không che lỗi nghiệp vụ.
-     * Thứ tự đóng: ResultSet → Statement → Connection.
+     * Dong lan luot {@link ResultSet}, {@link PreparedStatement} va {@link Connection}
+     * dang giu tren instance; bo qua loi dong tung tai nguyen de khong che loi nghiep vu.
+     * Thu tu dong: ResultSet -> Statement -> Connection.
      */
     public void closeResources() {
         try {
@@ -110,9 +110,9 @@ public class DBContext {
     }
 
     /**
-     * Smoke-test thủ công: mở connection, in tên database hiện tại, rồi đóng tài nguyên.
+     * Smoke-test thu cong: mo connection, in ten database hien tai, roi dong tai nguyen.
      *
-     * @param args không sử dụng
+     * @param args khong su dung
      */
     public static void main(String[] args) {
         DBContext db = new DBContext();

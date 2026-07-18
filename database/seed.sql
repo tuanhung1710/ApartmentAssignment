@@ -474,3 +474,9 @@ PRINT N'admin | manager | staff | staff2 | resident1 | owner1 | tenant1 | reside
 PRINT N'locked_user (is_active=0 — không login được)';
 PRINT N'--- Dashboard expected: xem comment đầu file seed.sql ---';
 GO
+-- =============================================================================
+-- FEE MODULE DEMO DATA
+-- Chay them sql/fee-module.sql sau seed nay de tao/seed bang fees (idempotent).
+-- schema.sql da gom CREATE TABLE fee_* cho cai sach.
+-- =============================================================================
+GO

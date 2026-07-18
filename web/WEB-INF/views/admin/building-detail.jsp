@@ -143,7 +143,7 @@
     </div>
 </div>
 
-<%-- ========== Căn hộ thuộc tòa + filter ACTIVE / INACTIVE ========== --%>
+<%-- ========== Căn hộ thuộc tòa: status → occupancy (ACTIVE only) ========== --%>
 <div class="card shadow-sm">
     <div class="card-header bg-white">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
@@ -151,7 +151,7 @@
                 <span class="fw-semibold"><i class="bi bi-door-open me-1"></i> Căn hộ thuộc tòa</span>
                 <span class="badge text-bg-light text-dark ms-1">${aptTotalItems} kết quả</span>
             </div>
-            <%-- Quick filter pills --%>
+            <%-- Quick filter pills theo trạng thái --%>
             <div class="btn-group flex-wrap" role="group" aria-label="Lọc trạng thái căn">
                 <c:url value="/building" var="aptFilterAll">
                     <c:param name="action" value="detail"/>
@@ -171,15 +171,18 @@
                     <c:if test="${not empty filterAptQ}"><c:param name="aptQ" value="${filterAptQ}"/></c:if>
                 </c:url>
                 <a href="${aptFilterAll}"
-                   class="btn btn-sm ${empty filterAptStatus ? 'btn-primary' : 'btn-outline-primary'}">
+                   class="btn btn-sm ${empty filterAptStatus ? 'btn-primary' : 'btn-outline-primary'}"
+                   title="Tất cả căn thuộc tòa">
                     Tất cả <span class="badge text-bg-light text-dark">${aptAllCount}</span>
                 </a>
                 <a href="${aptFilterActive}"
-                   class="btn btn-sm ${filterAptStatus == 'ACTIVE' ? 'btn-success' : 'btn-outline-success'}">
+                   class="btn btn-sm ${filterAptStatus == 'ACTIVE' ? 'btn-success' : 'btn-outline-success'}"
+                   title="Căn đang hoạt động — có thể lọc loại hình">
                     ACTIVE <span class="badge text-bg-light text-dark">${aptActiveCount}</span>
                 </a>
                 <a href="${aptFilterInactive}"
-                   class="btn btn-sm ${filterAptStatus == 'INACTIVE' ? 'btn-dark' : 'btn-outline-dark'}">
+                   class="btn btn-sm ${filterAptStatus == 'INACTIVE' ? 'btn-dark' : 'btn-outline-dark'}"
+                   title="Căn tạm ngưng — loại hình = N/A">
                     INACTIVE <span class="badge text-bg-light text-dark">${aptInactiveCount}</span>
                 </a>
             </div>
@@ -188,23 +191,49 @@
 
     <div class="card-body border-bottom">
         <form method="get" action="${pageContext.request.contextPath}/building"
-              class="row g-2 align-items-end">
+              class="row g-2 align-items-end" id="aptFilterForm">
             <input type="hidden" name="action" value="detail"/>
             <input type="hidden" name="id" value="${building.buildingId}"/>
-            <div class="col-12 col-md-5">
+            <div class="col-12 col-lg-4">
                 <label class="form-label small mb-1" for="aptQ">Tìm mã căn / ghi chú</label>
                 <input type="text" class="form-control" id="aptQ" name="aptQ"
                        value="${filterAptQ}" placeholder="VD: A-0801, bảo trì…">
             </div>
-            <div class="col-12 col-md-3">
-                <label class="form-label small mb-1" for="aptStatus">Trạng thái căn</label>
-                <select class="form-select" id="aptStatus" name="aptStatus">
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label small mb-1" for="aptStatus">
+                    Trạng thái
+                    <i class="bi bi-info-circle text-muted"
+                       title="Chọn trạng thái trước. ACTIVE mới cho phép lọc loại hình."></i>
+                </label>
+                <select class="form-select" id="aptStatus" name="aptStatus" onchange="onAptStatusChange()">
                     <option value="" ${empty filterAptStatus ? 'selected' : ''}>Tất cả</option>
                     <option value="ACTIVE" ${filterAptStatus == 'ACTIVE' ? 'selected' : ''}>ACTIVE</option>
                     <option value="INACTIVE" ${filterAptStatus == 'INACTIVE' ? 'selected' : ''}>INACTIVE</option>
                 </select>
             </div>
-            <div class="col-12 col-md-4 d-flex flex-column flex-sm-row gap-2">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <label class="form-label small mb-1" for="aptType">
+                    Loại hình
+                    <i class="bi bi-info-circle text-muted"
+                       title="Chỉ áp dụng khi trạng thái = ACTIVE. INACTIVE luôn là N/A."></i>
+                </label>
+                <select class="form-select" id="aptType" name="aptType"
+                        ${filterAptStatus == 'ACTIVE' ? '' : 'disabled'}>
+                    <option value="" ${empty filterAptType ? 'selected' : ''}>
+                        ${filterAptStatus == 'ACTIVE' ? 'Tất cả loại' : '— chọn ACTIVE trước —'}
+                    </option>
+                    <option value="OWNED" ${filterAptType == 'OWNED' ? 'selected' : ''}>
+                        OWNED — có chủ sở hữu
+                    </option>
+                    <option value="RENTED" ${filterAptType == 'RENTED' ? 'selected' : ''}>
+                        RENTED — cho thuê
+                    </option>
+                    <option value="VACANT" ${filterAptType == 'VACANT' ? 'selected' : ''}>
+                        VACANT — sẵn sàng, chưa vào ở
+                    </option>
+                </select>
+            </div>
+            <div class="col-12 col-lg-3 d-flex flex-column flex-sm-row gap-2">
                 <button type="submit" class="btn btn-outline-primary flex-grow-1">
                     <i class="bi bi-search me-1"></i> Lọc
                 </button>
@@ -214,6 +243,41 @@
                 </a>
             </div>
         </form>
+
+        <%-- Chú thích trạng thái / loại hình --%>
+        <div class="mt-3 small text-muted border-top pt-2">
+            <div class="fw-semibold text-body mb-1">
+                <i class="bi bi-lightbulb me-1"></i> Chú thích
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-2">
+                <span class="badge text-bg-success">ACTIVE</span>
+                <span class="align-self-center">đang vận hành</span>
+                <span class="text-muted">·</span>
+                <span class="badge text-bg-dark">INACTIVE</span>
+                <span class="align-self-center">tạm ngưng (loại hình = N/A)</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="badge text-bg-info">OWNED</span>
+                <span>có chủ sở hữu (chủ ở)</span>
+                <span class="text-muted">·</span>
+                <span class="badge text-bg-warning">RENTED</span>
+                <span>cho thuê (chủ hộ + người thuê)</span>
+                <span class="text-muted">·</span>
+                <span class="badge text-bg-secondary">VACANT</span>
+                <span>ACTIVE, sẵn sàng — chưa có ai chuyển vào</span>
+                <span class="text-muted">·</span>
+                <span class="badge text-bg-light text-dark border">N/A</span>
+                <span>chỉ khi INACTIVE</span>
+            </div>
+            <c:if test="${filterAptStatus == 'ACTIVE'}">
+                <div class="mt-2 d-flex flex-wrap gap-2">
+                    <span class="text-body-secondary">Trong ACTIVE:</span>
+                    <span class="badge rounded-pill text-bg-info">OWNED ${empty aptOwnedCount ? 0 : aptOwnedCount}</span>
+                    <span class="badge rounded-pill text-bg-warning">RENTED ${empty aptRentedCount ? 0 : aptRentedCount}</span>
+                    <span class="badge rounded-pill text-bg-secondary">VACANT ${empty aptVacantCount ? 0 : aptVacantCount}</span>
+                </div>
+            </c:if>
+        </div>
     </div>
 
     <div class="card-body p-0">
@@ -224,8 +288,16 @@
                     <th>Mã căn</th>
                     <th class="text-center">Tầng</th>
                     <th class="d-none d-sm-table-cell">Diện tích</th>
-                    <th>Loại</th>
-                    <th>Trạng thái</th>
+                    <th>
+                        Loại
+                        <i class="bi bi-info-circle text-muted"
+                           title="OWNED / RENTED / VACANT khi ACTIVE; N/A khi INACTIVE"></i>
+                    </th>
+                    <th>
+                        Trạng thái
+                        <i class="bi bi-info-circle text-muted"
+                           title="ACTIVE = đang hoạt động · INACTIVE = tạm ngưng"></i>
+                    </th>
                     <th class="d-none d-md-table-cell">Ghi chú</th>
                     <th class="text-end"></th>
                 </tr>
@@ -237,7 +309,7 @@
                             <td colspan="7" class="text-center text-muted py-5">
                                 <i class="bi bi-inbox fs-3 d-block mb-2"></i>
                                 <c:choose>
-                                    <c:when test="${not empty filterAptStatus || not empty filterAptQ}">
+                                    <c:when test="${not empty filterAptStatus || not empty filterAptType || not empty filterAptQ}">
                                         Không có căn khớp bộ lọc
                                     </c:when>
                                     <c:otherwise>
@@ -266,29 +338,45 @@
                                     </c:choose>
                                 </td>
                                 <td>
+                                    <%-- INACTIVE → N/A; ACTIVE → OWNED / RENTED / VACANT --%>
                                     <c:choose>
+                                        <c:when test="${a.status == 'INACTIVE'}">
+                                            <span class="badge text-bg-light text-dark border"
+                                                  title="Căn tạm ngưng — không áp loại hình">N/A</span>
+                                        </c:when>
                                         <c:when test="${a.occupancyType == 'OWNED'}">
-                                            <span class="badge text-bg-info">OWNED</span>
+                                            <span class="badge text-bg-info"
+                                                  title="Có chủ sở hữu (chủ ở)">OWNED</span>
                                         </c:when>
                                         <c:when test="${a.occupancyType == 'RENTED'}">
-                                            <span class="badge text-bg-warning">RENTED</span>
+                                            <span class="badge text-bg-warning"
+                                                  title="Cho thuê — chủ hộ + người thuê">RENTED</span>
+                                        </c:when>
+                                        <c:when test="${a.occupancyType == 'VACANT'}">
+                                            <span class="badge text-bg-secondary"
+                                                  title="ACTIVE, sẵn sàng — chưa có ai chuyển vào">VACANT</span>
                                         </c:when>
                                         <c:otherwise>
-                                            <span class="badge text-bg-secondary">${a.occupancyType}</span>
+                                            <span class="badge text-bg-light text-dark border">
+                                                ${empty a.occupancyType ? 'N/A' : a.occupancyType}
+                                            </span>
                                         </c:otherwise>
                                     </c:choose>
                                 </td>
                                 <td>
                                     <c:choose>
                                         <c:when test="${a.status == 'ACTIVE'}">
-                                            <span class="badge text-bg-success">ACTIVE</span>
+                                            <span class="badge text-bg-success"
+                                                  title="Đang vận hành">ACTIVE</span>
                                         </c:when>
                                         <c:otherwise>
-                                            <span class="badge text-bg-dark">INACTIVE</span>
+                                            <span class="badge text-bg-dark"
+                                                  title="Tạm ngưng hoạt động">INACTIVE</span>
                                         </c:otherwise>
                                     </c:choose>
                                 </td>
-                                <td class="d-none d-md-table-cell small text-muted text-truncate" style="max-width: 180px;">
+                                <td class="d-none d-md-table-cell small text-muted text-truncate" style="max-width: 180px;"
+                                    title="${empty a.notes ? '' : a.notes}">
                                     <c:choose>
                                         <c:when test="${empty a.notes}">—</c:when>
                                         <c:otherwise>${a.notes}</c:otherwise>
@@ -312,31 +400,25 @@
 
     <c:if test="${aptTotalPages > 1}">
         <div class="card-footer bg-white">
-            <c:url value="/building" var="aptPaginationUrl">
+            <c:url value="/building" var="paginationUrl">
                 <c:param name="action" value="detail"/>
                 <c:param name="id" value="${building.buildingId}"/>
                 <c:if test="${not empty filterAptStatus}">
                     <c:param name="aptStatus" value="${filterAptStatus}"/>
                 </c:if>
+                <c:if test="${not empty filterAptType}">
+                    <c:param name="aptType" value="${filterAptType}"/>
+                </c:if>
                 <c:if test="${not empty filterAptQ}">
                     <c:param name="aptQ" value="${filterAptQ}"/>
                 </c:if>
             </c:url>
-            <nav aria-label="Phân trang căn hộ tòa">
-                <ul class="pagination pagination-sm mb-0 justify-content-center flex-wrap">
-                    <li class="page-item ${aptCurrentPage <= 1 ? 'disabled' : ''}">
-                        <a class="page-link" href="${aptPaginationUrl}&aptPage=${aptCurrentPage - 1}">Trước</a>
-                    </li>
-                    <c:forEach begin="1" end="${aptTotalPages}" var="i">
-                        <li class="page-item ${i == aptCurrentPage ? 'active' : ''}">
-                            <a class="page-link" href="${aptPaginationUrl}&aptPage=${i}">${i}</a>
-                        </li>
-                    </c:forEach>
-                    <li class="page-item ${aptCurrentPage >= aptTotalPages ? 'disabled' : ''}">
-                        <a class="page-link" href="${aptPaginationUrl}&aptPage=${aptCurrentPage + 1}">Sau</a>
-                    </li>
-                </ul>
-            </nav>
+            <c:set var="currentPage" value="${aptCurrentPage}"/>
+            <c:set var="totalPages" value="${aptTotalPages}"/>
+            <c:set var="pageParam" value="aptPage"/>
+            <c:set var="paginationLabel" value="Phân trang căn hộ tòa"/>
+            <c:set var="paginationAlign" value="justify-content-center"/>
+            <%@ include file="/WEB-INF/views/common/pagination.jsp" %>
         </div>
     </c:if>
 </div>
@@ -356,4 +438,23 @@
             window.location.href = '<%= request.getContextPath() %>/building?action=delete&id=' + id;
         }
     }
+    /** Chỉ bật lọc loại hình khi status = ACTIVE; đổi status → reset type. */
+    function onAptStatusChange() {
+        var statusEl = document.getElementById('aptStatus');
+        var typeEl = document.getElementById('aptType');
+        if (!statusEl || !typeEl) return;
+        var isActive = statusEl.value === 'ACTIVE';
+        typeEl.disabled = !isActive;
+        if (!isActive) {
+            typeEl.value = '';
+            // cập nhật nhãn option đầu
+            if (typeEl.options.length > 0) {
+                typeEl.options[0].text = '— chọn ACTIVE trước —';
+            }
+        } else if (typeEl.options.length > 0) {
+            typeEl.options[0].text = 'Tất cả loại';
+        }
+    }
+    // sync lúc load (phòng back/forward cache)
+    document.addEventListener('DOMContentLoaded', onAptStatusChange);
 </script>

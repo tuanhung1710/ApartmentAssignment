@@ -11,21 +11,9 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * CRUD tòa nhà (master data {@code buildings}).
- * TV2–TV5 filter căn hộ / cư dân / phí theo {@code building_id}.
- * Cũng cung cấp list/count căn thuộc tòa cho màn detail.
- */
+
 public class BuildingDAO extends DBContext {
 
-    /**
-     * Map ResultSet sang {@link Building}.
-     * {@code apartment_count} optional khi SELECT không join count.
-     *
-     * @param rs ResultSet đang trỏ tới dòng hợp lệ
-     * @return entity đã map
-     * @throws SQLException nếu đọc cột bắt buộc lỗi
-     */
     public Building getFromResultSet(ResultSet rs) throws SQLException {
         Object floorsObj = rs.getObject("total_floors");
         Integer floors = floorsObj == null ? null : ((Number) floorsObj).intValue();
@@ -51,12 +39,6 @@ public class BuildingDAO extends DBContext {
         return builder.build();
     }
 
-    /**
-     * Tìm tòa theo id (kèm số căn).
-     *
-     * @param buildingId id tòa
-     * @return tòa hoặc null
-     */
     public Building findById(int buildingId) {
         String sql = "SELECT b.*, "
                 + "(SELECT COUNT(*) FROM apartments a WHERE a.building_id = b.building_id) AS apartment_count "
@@ -80,12 +62,6 @@ public class BuildingDAO extends DBContext {
         return null;
     }
 
-    /**
-     * Tìm tòa theo mã (không phân biệt hoa thường).
-     *
-     * @param buildingCode mã tòa
-     * @return tòa hoặc null
-     */
     public Building findByCode(String buildingCode) {
         if (buildingCode == null || buildingCode.isBlank()) {
             return null;
@@ -111,16 +87,7 @@ public class BuildingDAO extends DBContext {
         }
         return null;
     }
-
-    /**
-     * Danh sách tòa có filter + phân trang (SQL Server OFFSET/FETCH).
-     *
-     * @param keyword  tìm theo code / name / address (nullable)
-     * @param status   ACTIVE | INACTIVE | null/blank = all
-     * @param page     trang (≥1)
-     * @param pageSize kích thước trang
-     * @return danh sách tòa trang hiện tại
-     */
+    
     public List<Building> findWithFilters(String keyword, String status, int page, int pageSize) {
         List<Building> list = new ArrayList<>();
         if (page < 1) {
@@ -160,11 +127,6 @@ public class BuildingDAO extends DBContext {
         return list;
     }
 
-    /**
-     * Đếm tòa theo cùng filter với {@link #findWithFilters}.
-     *
-     * @return tổng số; lỗi → 0
-     */
     public int countWithFilters(String keyword, String status) {
         StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM buildings b WHERE 1=1 ");
         List<Object> params = new ArrayList<>();
@@ -172,9 +134,6 @@ public class BuildingDAO extends DBContext {
 
         try {
             connection = getConnection();
-            if (connection == null) {
-                return 0;
-            }
             statement = connection.prepareStatement(sql.toString());
             bindParams(params);
             resultSet = statement.executeQuery();
@@ -189,11 +148,7 @@ public class BuildingDAO extends DBContext {
         return 0;
     }
 
-    /**
-     * Dropdown / filter cho TV2–TV5: chỉ tòa ACTIVE, sort theo mã.
-     *
-     * @return danh sách tòa active
-     */
+
     public List<Building> findAllActive() {
         List<Building> list = new ArrayList<>();
         String sql = "SELECT b.*, "
@@ -217,12 +172,6 @@ public class BuildingDAO extends DBContext {
         return list;
     }
 
-    /**
-     * Thêm tòa mới. Status mặc định ACTIVE nếu null.
-     *
-     * @param building dữ liệu tòa
-     * @return generated building_id; -1 nếu lỗi
-     */
     public int insert(Building building) {
         String sql = "INSERT INTO buildings (building_code, building_name, address, total_floors, "
                 + "description, status) VALUES (?, ?, ?, ?, ?, ?)";
@@ -259,12 +208,6 @@ public class BuildingDAO extends DBContext {
         return -1;
     }
 
-    /**
-     * Cập nhật thông tin tòa (kể cả status).
-     *
-     * @param building entity (cần buildingId)
-     * @return true nếu cập nhật thành công
-     */
     public boolean update(Building building) {
         String sql = "UPDATE buildings SET building_code = ?, building_name = ?, address = ?, "
                 + "total_floors = ?, description = ?, status = ?, updated_at = SYSUTCDATETIME() "
@@ -295,12 +238,7 @@ public class BuildingDAO extends DBContext {
         }
     }
 
-    /**
-     * Soft-delete: đặt status = INACTIVE. Không xóa cứng nếu còn căn hộ.
-     *
-     * @param buildingId id tòa
-     * @return true nếu cập nhật thành công
-     */
+    /** Soft-delete: INACTIVE. Không xóa cứng nếu còn căn hộ. */
     public boolean deactivate(int buildingId) {
         String sql = "UPDATE buildings SET status = N'INACTIVE', updated_at = SYSUTCDATETIME() "
                 + "WHERE building_id = ?";
@@ -320,12 +258,6 @@ public class BuildingDAO extends DBContext {
         }
     }
 
-    /**
-     * Kích hoạt lại tòa (status = ACTIVE).
-     *
-     * @param buildingId id tòa
-     * @return true nếu cập nhật thành công
-     */
     public boolean activate(int buildingId) {
         String sql = "UPDATE buildings SET status = N'ACTIVE', updated_at = SYSUTCDATETIME() "
                 + "WHERE building_id = ?";
@@ -345,12 +277,7 @@ public class BuildingDAO extends DBContext {
         }
     }
 
-    /**
-     * Hard delete chỉ khi không còn căn hộ thuộc tòa.
-     *
-     * @param buildingId id tòa
-     * @return 1 ok · 0 fail · -1 còn căn hộ · -2 not found
-     */
+    
     public int deleteIfEmpty(int buildingId) {
         Building existing = findById(buildingId);
         if (existing == null) {
@@ -377,13 +304,6 @@ public class BuildingDAO extends DBContext {
         }
     }
 
-    /**
-     * Kiểm tra mã tòa đã tồn tại (case-insensitive), có thể loại trừ 1 id khi edit.
-     *
-     * @param code     mã tòa
-     * @param exceptId id bỏ qua (nullable)
-     * @return true nếu trùng mã
-     */
     public boolean existsCodeExceptId(String code, Integer exceptId) {
         if (code == null || code.isBlank()) {
             return false;
@@ -412,11 +332,6 @@ public class BuildingDAO extends DBContext {
         return false;
     }
 
-    /**
-     * Tổng số tòa.
-     *
-     * @return count; lỗi → 0
-     */
     public int countAll() {
         String sql = "SELECT COUNT(*) FROM buildings";
         try {
@@ -437,12 +352,6 @@ public class BuildingDAO extends DBContext {
         return 0;
     }
 
-    /**
-     * Đếm tòa theo status.
-     *
-     * @param status ACTIVE | INACTIVE
-     * @return count; lỗi → 0
-     */
     public int countByStatus(String status) {
         String sql = "SELECT COUNT(*) FROM buildings WHERE status = ?";
         try {
@@ -464,18 +373,9 @@ public class BuildingDAO extends DBContext {
         return 0;
     }
 
-    /**
-     * Danh sách căn theo tòa — filter status (ACTIVE|INACTIVE|blank=all), keyword mã căn.
-     *
-     * @param buildingId id tòa
-     * @param status     filter status căn (nullable)
-     * @param keyword    tìm mã căn / notes (nullable)
-     * @param page       trang (≥1)
-     * @param pageSize   kích thước trang
-     * @return danh sách căn trang hiện tại
-     */
-    public List<Apartment> findApartmentsByBuilding(int buildingId, String status, String keyword,
-            int page, int pageSize) {
+    
+    public List<Apartment> findApartmentsByBuilding(int buildingId, String status,
+            String occupancyType, String keyword, int page, int pageSize) {
         List<Apartment> list = new ArrayList<>();
         if (page < 1) {
             page = 1;
@@ -491,7 +391,7 @@ public class BuildingDAO extends DBContext {
                 + "FROM apartments WHERE building_id = ? ");
         List<Object> params = new ArrayList<>();
         params.add(buildingId);
-        appendApartmentFilters(sql, params, status, keyword);
+        appendApartmentFilters(sql, params, status, occupancyType, keyword);
         sql.append(" ORDER BY apartment_code OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
         params.add(offset);
         params.add(pageSize);
@@ -515,17 +415,13 @@ public class BuildingDAO extends DBContext {
         return list;
     }
 
-    /**
-     * Đếm căn theo tòa + filter status/keyword.
-     *
-     * @return count; lỗi → 0
-     */
-    public int countApartmentsByBuilding(int buildingId, String status, String keyword) {
+    public int countApartmentsByBuilding(int buildingId, String status,
+            String occupancyType, String keyword) {
         StringBuilder sql = new StringBuilder(
                 "SELECT COUNT(*) FROM apartments WHERE building_id = ? ");
         List<Object> params = new ArrayList<>();
         params.add(buildingId);
-        appendApartmentFilters(sql, params, status, keyword);
+        appendApartmentFilters(sql, params, status, occupancyType, keyword);
 
         try {
             connection = getConnection();
@@ -546,13 +442,7 @@ public class BuildingDAO extends DBContext {
         return 0;
     }
 
-    /**
-     * Đếm căn theo tòa + status (không keyword) — badge filter trên UI.
-     *
-     * @param buildingId id tòa
-     * @param status     null/blank = tất cả
-     * @return count; lỗi → 0
-     */
+    /** Đếm căn theo tòa + status (không keyword) — badge filter. */
     public int countApartmentsByBuildingStatus(int buildingId, String status) {
         String sql = "SELECT COUNT(*) FROM apartments WHERE building_id = ?"
                 + (status == null || status.isBlank() ? "" : " AND status = ?");
@@ -578,12 +468,51 @@ public class BuildingDAO extends DBContext {
         return 0;
     }
 
-    /** Filter status/keyword cho danh sách căn thuộc tòa. */
+    /**
+     * Đếm căn ACTIVE theo occupancy_type (OWNED | RENTED | VACANT).
+     * Chỉ meaningful khi status = ACTIVE.
+     */
+    public int countApartmentsByBuildingOccupancy(int buildingId, String occupancyType) {
+        if (occupancyType == null || occupancyType.isBlank()) {
+            return 0;
+        }
+        String sql = "SELECT COUNT(*) FROM apartments "
+                + "WHERE building_id = ? AND status = N'ACTIVE' AND occupancy_type = ?";
+        try {
+            connection = getConnection();
+            if (connection == null) {
+                return 0;
+            }
+            statement = connection.prepareStatement(sql);
+            statement.setInt(1, buildingId);
+            statement.setString(2, occupancyType.trim());
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.out.println("BuildingDAO.countApartmentsByBuildingOccupancy error: " + e.getMessage());
+        } finally {
+            closeResources();
+        }
+        return 0;
+    }
+
+    /**
+     * status + occupancyType + keyword.
+     * occupancyType chỉ áp khi status = ACTIVE (INACTIVE → loại hình = N/A, không filter type).
+     */
     private void appendApartmentFilters(StringBuilder sql, List<Object> params,
-            String status, String keyword) {
+            String status, String occupancyType, String keyword) {
         if (status != null && !status.isBlank()) {
             sql.append(" AND status = ? ");
             params.add(status.trim());
+        }
+        // Chỉ filter loại hình khi ACTIVE — tránh lẫn với INACTIVE
+        if (occupancyType != null && !occupancyType.isBlank()
+                && "ACTIVE".equalsIgnoreCase(status == null ? "" : status.trim())) {
+            sql.append(" AND occupancy_type = ? ");
+            params.add(occupancyType.trim());
         }
         if (keyword != null && !keyword.isBlank()) {
             sql.append(" AND (apartment_code LIKE ? OR notes LIKE ?) ");
@@ -593,7 +522,6 @@ public class BuildingDAO extends DBContext {
         }
     }
 
-    /** Map dòng căn thuộc tòa (không có member_count). */
     private Apartment mapApartment(ResultSet rs) throws SQLException {
         Object bid = rs.getObject("building_id");
         Object floor = rs.getObject("floor_number");
@@ -613,7 +541,6 @@ public class BuildingDAO extends DBContext {
                 .build();
     }
 
-    /** Filter keyword/status cho danh sách tòa ({@code b.} alias). */
     private void appendFilters(StringBuilder sql, List<Object> params, String keyword, String status) {
         if (keyword != null && !keyword.isBlank()) {
             sql.append(" AND (b.building_code LIKE ? OR b.building_name LIKE ? OR b.address LIKE ?) ");
@@ -628,7 +555,6 @@ public class BuildingDAO extends DBContext {
         }
     }
 
-    /** Bind tuần tự Integer/String vào {@code statement} hiện tại. */
     private void bindParams(List<Object> params) throws SQLException {
         for (int i = 0; i < params.size(); i++) {
             Object p = params.get(i);

@@ -1,7 +1,7 @@
 package apartmentmanagement.util;
 
 /**
- * Hằng số dùng chung toàn hệ thống (TV1 platform + TV2 apartment).
+ * Hằng số dùng chung toàn hệ thống (TV1 platform + TV2 apartment + fee module).
  * <p>
  * Gom session keys, flash keys, role, trạng thái nghiệp vụ và giá trị
  * mặc định để tránh hard-code rải rác trong controller/DAO/JSP.
@@ -60,14 +60,40 @@ public final class AppConstants {
     /** Loại yêu cầu: khác. */
     public static final String TYPE_OTHER = "OTHER";
 
-    /** Trạng thái phí: nháp. */
+    /** Trạng thái phí tháng (legacy monthly_fees): nháp. */
     public static final String FEE_DRAFT = "DRAFT";
-    /** Trạng thái phí: đã công bố. */
+    /** Trạng thái phí tháng (legacy monthly_fees): đã công bố. */
     public static final String FEE_PUBLISHED = "PUBLISHED";
-    /** Trạng thái phí: đã thanh toán. */
+    /** Trạng thái phí tháng (legacy monthly_fees): đã thanh toán. */
     public static final String FEE_PAID = "PAID";
-    /** Trạng thái phí: chưa thanh toán. */
+    /** Trạng thái phí tháng (legacy monthly_fees): chưa thanh toán. */
     public static final String FEE_UNPAID = "UNPAID";
+
+    /** Trạng thái đợt phí (fees): nháp. */
+    public static final String FEE_STATUS_DRAFT = "DRAFT";
+    /** Trạng thái đợt phí (fees): đã gán căn. */
+    public static final String FEE_STATUS_ASSIGNED = "ASSIGNED";
+    /** Trạng thái đợt phí (fees): đã công bố. */
+    public static final String FEE_STATUS_PUBLISHED = "PUBLISHED";
+
+    /** Trạng thái gán phí (fee_assignments): chưa thanh toán. */
+    public static final String ASSIGNMENT_UNPAID = "UNPAID";
+    /** Trạng thái gán phí (fee_assignments): đã thanh toán. */
+    public static final String ASSIGNMENT_PAID = "PAID";
+
+    /** Phạm vi áp phí: toàn bộ căn. */
+    public static final String FEE_SCOPE_ALL = "ALL";
+    /** Phạm vi áp phí: theo tòa. */
+    public static final String FEE_SCOPE_BUILDING = "BUILDING";
+    /** Phạm vi áp phí: theo tầng. */
+    public static final String FEE_SCOPE_FLOOR = "FLOOR";
+    /** Phạm vi áp phí: theo căn. */
+    public static final String FEE_SCOPE_APARTMENT = "APARTMENT";
+
+    /** Loại phí: hàng tháng. */
+    public static final String FEE_TYPE_MONTHLY = "MONTHLY";
+    /** Loại phí: một lần. */
+    public static final String FEE_TYPE_ONE_TIME = "ONE_TIME";
 
     /**
      * Trạng thái lifecycle building/apartment: đang hoạt động.

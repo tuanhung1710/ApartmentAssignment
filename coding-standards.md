@@ -905,6 +905,31 @@ requireUser → canManage → bind (có apartmentId)
 
 ---
 
+## 12b. Responsive & pagination component (bắt buộc)
+
+App phải dùng được trên **mobile, tablet, desktop** (Bootstrap 5).
+
+1. Viewport trong layout: `<meta name="viewport" content="width=device-width, initial-scale=1">`
+2. Grid content luôn stack mobile: `col-12 col-sm-6 col-lg-4` (stat), `col-12 col-md-6` (form 2 cột)
+3. Bảng list bọc `.table-responsive`
+4. Shell: desktop sidebar cố định; `< lg` dùng hamburger/offcanvas — không ẩn menu mà không thay thế
+5. Phân trang list: ưu tiên include component dùng chung:
+
+```jsp
+<c:url value="/building" var="paginationUrl">
+    <c:param name="action" value="list"/>
+    <%-- giữ filter bằng c:param --%>
+</c:url>
+<c:set var="pageParam" value="page"/>
+<c:set var="paginationLabel" value="Phân trang"/>
+<c:set var="paginationAlign" value="justify-content-center"/>
+<%@ include file="/WEB-INF/views/common/pagination.jsp" %>
+```
+
+Checklist nhanh: viewport · `col-12…` · table-responsive · không scroll ngang body · menu mobile OK.
+
+---
+
 ## 13. Checklist PR / trước khi commit
 
 - [ ] `jakarta.*` only  

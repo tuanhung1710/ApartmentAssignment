@@ -1,7 +1,7 @@
 /*
 ================================================================================
   Hệ thống quản lý & xử lý yêu cầu căn hộ chung cư (PRJ301)
-  SQL Server - Schema UNIFIED (TV1 platform + TV2 apartment occupancy/history)
+  SQL Server - Schema UNIFIED (TV1 platform + TV2 apartment + TV3 fee module)
   Occupancy: OWNED | RENTED | VACANT | N/A · Default apt status: INACTIVE
   Tham chiếu: docs/business-rules-apartment-module.md | coding-standards.md
 ================================================================================
@@ -350,6 +350,144 @@ GO
 CREATE INDEX IX_ah_apartment ON apartment_history(apartment_id);
 GO
 
+
+/*--------------------------------------------------------------------------------
+  FEE MODULE (TV3) - categories, fees, scopes, assignments, payments
+  Nguon dong bo: sql/fee-module.sql (migrate/idempotent + seed fee demo)
+--------------------------------------------------------------------------------*/
+CREATE TABLE fee_categories (
+    category_id     INT IDENTITY(1,1) NOT NULL
+                    CONSTRAINT PK_fee_categories PRIMARY KEY,
+    name            NVARCHAR(100) NOT NULL
+                    CONSTRAINT UQ_fc_name UNIQUE,
+    description     NVARCHAR(500) NULL,
+    is_active       BIT           NOT NULL
+                    CONSTRAINT DF_fc_is_active DEFAULT (1),
+    created_at      DATETIME2(0)  NOT NULL
+                    CONSTRAINT DF_fc_created_at DEFAULT (SYSUTCDATETIME())
+);
+GO
+
+CREATE INDEX IX_fc_active_name ON fee_categories (is_active, name);
+GO
+
+CREATE TABLE fees (
+    fee_id          INT IDENTITY(1,1) NOT NULL
+                    CONSTRAINT PK_fees PRIMARY KEY,
+    category_id     INT           NOT NULL
+                    CONSTRAINT FK_fees_category
+                    REFERENCES fee_categories(category_id),
+    title           NVARCHAR(200) NOT NULL,
+    amount          DECIMAL(12,2) NOT NULL
+                    CONSTRAINT CK_fees_amount CHECK (amount >= 0),
+    fee_month       TINYINT       NULL
+                    CONSTRAINT CK_fees_month
+                    CHECK (fee_month IS NULL OR fee_month BETWEEN 1 AND 12),
+    fee_year        SMALLINT      NULL
+                    CONSTRAINT CK_fees_year
+                    CHECK (fee_year IS NULL OR fee_year BETWEEN 2000 AND 2100),
+    fee_type        NVARCHAR(20)  NOT NULL
+                    CONSTRAINT DF_fees_fee_type DEFAULT (N'MONTHLY')
+                    CONSTRAINT CK_fees_fee_type
+                    CHECK (fee_type IN (N'MONTHLY', N'ONE_TIME')),
+    status          NVARCHAR(20)  NOT NULL
+                    CONSTRAINT DF_fees_status DEFAULT (N'DRAFT')
+                    CONSTRAINT CK_fees_status
+                    CHECK (status IN (N'DRAFT', N'ASSIGNED', N'PUBLISHED')),
+    note            NVARCHAR(500) NULL,
+    created_by      INT           NULL
+                    CONSTRAINT FK_fees_created_by REFERENCES users(user_id),
+    created_at      DATETIME2(0)  NOT NULL
+                    CONSTRAINT DF_fees_created_at DEFAULT (SYSUTCDATETIME()),
+    updated_at      DATETIME2(0)  NULL
+);
+GO
+
+CREATE INDEX IX_fees_status_created ON fees (status, created_at DESC);
+GO
+CREATE INDEX IX_fees_category ON fees (category_id);
+GO
+CREATE INDEX IX_fees_period ON fees (fee_year, fee_month)
+    WHERE fee_year IS NOT NULL;
+GO
+CREATE INDEX IX_fees_fee_type ON fees (fee_type);
+GO
+
+CREATE TABLE fee_scopes (
+    scope_id        INT IDENTITY(1,1) NOT NULL
+                    CONSTRAINT PK_fee_scopes PRIMARY KEY,
+    fee_id          INT           NOT NULL
+                    CONSTRAINT FK_fs_fee
+                    REFERENCES fees(fee_id) ON DELETE CASCADE
+                    CONSTRAINT UQ_fs_fee UNIQUE,
+    scope_type      NVARCHAR(20)  NOT NULL
+                    CONSTRAINT CK_fs_type
+                    CHECK (scope_type IN (N'ALL', N'BUILDING', N'FLOOR', N'APARTMENT')),
+    building        NVARCHAR(50)  NULL,
+    floor_number    INT           NULL,
+    apartment_id    INT           NULL
+                    CONSTRAINT FK_fs_apartment REFERENCES apartments(apartment_id),
+    created_at      DATETIME2(0)  NOT NULL
+                    CONSTRAINT DF_fs_created_at DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT CK_fs_fields CHECK (
+        (scope_type = N'ALL'
+            AND building IS NULL AND floor_number IS NULL AND apartment_id IS NULL)
+        OR (scope_type = N'BUILDING'
+            AND building IS NOT NULL AND floor_number IS NULL AND apartment_id IS NULL)
+        OR (scope_type = N'FLOOR'
+            AND building IS NOT NULL AND floor_number IS NOT NULL AND apartment_id IS NULL)
+        OR (scope_type = N'APARTMENT'
+            AND apartment_id IS NOT NULL)
+    )
+);
+GO
+
+CREATE TABLE fee_assignments (
+    assignment_id   INT IDENTITY(1,1) NOT NULL
+                    CONSTRAINT PK_fee_assignments PRIMARY KEY,
+    fee_id          INT           NOT NULL
+                    CONSTRAINT FK_fa_fee
+                    REFERENCES fees(fee_id) ON DELETE CASCADE,
+    apartment_id    INT           NOT NULL
+                    CONSTRAINT FK_fa_apartment REFERENCES apartments(apartment_id),
+    amount          DECIMAL(12,2) NOT NULL
+                    CONSTRAINT CK_fa_amount CHECK (amount >= 0),
+    status          NVARCHAR(20)  NOT NULL
+                    CONSTRAINT DF_fa_status DEFAULT (N'UNPAID')
+                    CONSTRAINT CK_fa_status
+                    CHECK (status IN (N'UNPAID', N'PAID')),
+    assigned_at     DATETIME2(0)  NOT NULL
+                    CONSTRAINT DF_fa_assigned_at DEFAULT (SYSUTCDATETIME()),
+    paid_at         DATETIME2(0)  NULL,
+    CONSTRAINT UQ_fa_fee_apartment UNIQUE (fee_id, apartment_id)
+);
+GO
+
+CREATE INDEX IX_fa_apartment_status ON fee_assignments (apartment_id, status);
+GO
+CREATE INDEX IX_fa_status ON fee_assignments (status)
+    INCLUDE (amount);
+GO
+
+CREATE TABLE payments (
+    payment_id      INT IDENTITY(1,1) NOT NULL
+                    CONSTRAINT PK_payments PRIMARY KEY,
+    assignment_id   INT           NOT NULL
+                    CONSTRAINT FK_pay_assignment
+                    REFERENCES fee_assignments(assignment_id) ON DELETE CASCADE,
+    amount          DECIMAL(12,2) NOT NULL
+                    CONSTRAINT CK_pay_amount CHECK (amount >= 0),
+    paid_at         DATETIME2(0)  NOT NULL
+                    CONSTRAINT DF_pay_paid_at DEFAULT (SYSUTCDATETIME()),
+    note            NVARCHAR(500) NULL,
+    recorded_by     INT           NULL
+                    CONSTRAINT FK_pay_recorded_by REFERENCES users(user_id)
+);
+GO
+
+CREATE INDEX IX_pay_assignment ON payments (assignment_id);
+GO
+
 /*--------------------------------------------------------------------------------
   10. SYSTEM_SETTINGS - cấu hình đơn giản (khung giờ chuyển đồ, ...)
   key-value để Admin/Manager sửa không cần deploy lại
@@ -365,5 +503,5 @@ CREATE TABLE system_settings (
 );
 GO
 
-PRINT N'Schema ApartmentManagement UNIFIED (TV1+TV2) created successfully.';
+PRINT N'Schema ApartmentManagement UNIFIED (TV1+TV2+fee) created successfully.';
 GO

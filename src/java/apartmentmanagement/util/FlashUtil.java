@@ -4,22 +4,22 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 /**
- * Helper flash message theo pattern “set vào session, đọc một lần rồi xóa”.
+ * Helper flash message theo pattern set vao session, doc mot lan roi xoa.
  * <p>
- * Dùng sau redirect (PRG): controller gọi {@link #success} / {@link #error},
- * request kế tiếp gọi {@link #moveToRequest} trước khi forward JSP.
+ * Dung sau redirect (PRG): controller goi {@link #success} / {@link #error},
+ * request ke tiep goi {@link #moveToRequest} truoc khi forward JSP.
  */
 public final class FlashUtil {
 
-    /** Chặn khởi tạo — chỉ dùng phương thức static. */
+    /** Chan khoi tao — chi dung phuong thuc static. */
     private FlashUtil() {
     }
 
     /**
-     * Ghi thông báo thành công vào session flash.
+     * Ghi thong bao thanh cong vao session flash.
      *
-     * @param request request hiện tại (lấy/tạo session)
-     * @param message nội dung hiển thị cho người dùng
+     * @param request request hien tai (lay/tao session)
+     * @param message noi dung hien thi cho nguoi dung
      */
     public static void success(HttpServletRequest request, String message) {
         HttpSession session = request.getSession();
@@ -27,23 +27,33 @@ public final class FlashUtil {
     }
 
     /**
-     * Ghi thông báo lỗi vào session flash.
+     * Ghi thong bao loi vao session flash.
      *
-     * @param request request hiện tại (lấy/tạo session)
-     * @param message nội dung hiển thị cho người dùng
+     * @param request request hien tai (lay/tao session)
+     * @param message noi dung hien thi cho nguoi dung
      */
     public static void error(HttpServletRequest request, String message) {
         HttpSession session = request.getSession();
         session.setAttribute(AppConstants.FLASH_ERROR, message);
     }
 
+    /** Alias tuong thich fee module / main. */
+    public static void setFlashSuccess(HttpServletRequest request, String message) {
+        success(request, message);
+    }
+
+    /** Alias tuong thich fee module / main. */
+    public static void setFlashError(HttpServletRequest request, String message) {
+        error(request, message);
+    }
+
     /**
-     * Chuyển flash từ session sang request attribute rồi xóa session flash
-     * để JSP chỉ thấy một lần (tránh lặp sau F5).
+     * Chuyen flash tu session sang request attribute roi xoa session flash
+     * de JSP chi thay mot lan (tranh lap sau F5).
      * <p>
-     * Gọi trước khi forward sang JSP layout. Không tạo session mới nếu chưa có.
+     * Goi truoc khi forward sang JSP layout. Khong tao session moi neu chua co.
      *
-     * @param request request sẽ forward tới view
+     * @param request request se forward toi view
      */
     public static void moveToRequest(HttpServletRequest request) {
         HttpSession session = request.getSession(false);

@@ -8,8 +8,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Căn hộ trong hệ thống quản lý chung cư.
- * Một số trường (memberCount) chỉ phục vụ hiển thị, không map cột DB.
+ * Can ho trong he thong quan ly chung cu.
+ * Mot so truong (memberCount) chi phuc vu hien thi, khong map cot DB.
  */
 @Data
 @Builder
@@ -18,19 +18,22 @@ import lombok.NoArgsConstructor;
 public class Apartment {
     private Integer apartmentId;
     private String apartmentCode;
-    /** FK buildings.building_id — null nếu tòa chưa có trong master */
+    /** FK buildings.building_id — null neu toa chua co trong master */
     private Integer buildingId;
-    /** Mã tòa denormalized (A/B/…) — dùng filter và generate code TV2 */
+    /** Ma toa denormalized (A/B/…) — dung filter va generate code TV2 */
     private String building;
     private Integer floorNumber;
     private BigDecimal areaM2;
-    /** OWNED | RENTED | VACANT | N/A */
+    /**
+     * Loai hinh khi ACTIVE: OWNED | RENTED | VACANT.
+     * Khi status = INACTIVE UI hien thi N/A (khong filter theo loai).
+     */
     private String occupancyType;
     /** ACTIVE | INACTIVE */
     private String status;
     private String notes;
     private Timestamp createdAt;
     private Timestamp updatedAt;
-    /** Số thành viên hộ active (display list; không map cột DB) */
+    /** So thanh vien ho active (display list; khong map cot DB) */
     private Integer memberCount;
 }

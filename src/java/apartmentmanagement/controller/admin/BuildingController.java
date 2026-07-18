@@ -16,23 +16,15 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Servlet CRUD tòa nhà (master data TV1).
- * <p>
- * URL: {@code /building?action=list|create|edit|detail|save|deactivate|activate|delete}
- * <ul>
- *   <li>Ghi: ADMIN, MANAGER</li>
- *   <li>Xem: ADMIN, MANAGER, STAFF</li>
- * </ul>
+ * CRUD tòa nhà — TV1 master data.
+ * URL: /building?action=list|create|edit|detail|save|deactivate|activate|delete
+ * Role ghi: ADMIN, MANAGER · Role xem: ADMIN, MANAGER, STAFF
  */
 @WebServlet(name = "BuildingController", urlPatterns = {"/building"})
 public class BuildingController extends HttpServlet {
 
     private final BuildingDAO buildingDAO = new BuildingDAO();
 
-    /**
-     * Điều hướng GET theo {@code action} (mặc định {@code list}).
-     * Yêu cầu đăng nhập; action không hợp lệ → 404.
-     */
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -59,10 +51,6 @@ public class BuildingController extends HttpServlet {
         }
     }
 
-    /**
-     * Điều hướng POST theo {@code action} (mặc định {@code save}).
-     * Các thao tác ghi đều kiểm tra quyền ADMIN/MANAGER trong handler.
-     */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -86,7 +74,8 @@ public class BuildingController extends HttpServlet {
         }
     }
 
-    /** Danh sách tòa nhà có lọc keyword/status và phân trang. */
+    /* ===================== handlers ===================== */
+
     private void handleList(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String keyword = trim(request.getParameter("q"));
@@ -116,7 +105,6 @@ public class BuildingController extends HttpServlet {
         forward(request, response, "Quản lý tòa nhà", "/WEB-INF/views/admin/building-list.jsp");
     }
 
-    /** Form thêm tòa — chỉ ADMIN/MANAGER. */
     private void handleCreateForm(HttpServletRequest request, HttpServletResponse response, User user)
             throws ServletException, IOException {
         if (!canWrite(user)) {
@@ -129,7 +117,6 @@ public class BuildingController extends HttpServlet {
         forward(request, response, "Thêm tòa nhà", "/WEB-INF/views/admin/building-form.jsp");
     }
 
-    /** Form sửa tòa theo {@code id}. */
     private void handleEditForm(HttpServletRequest request, HttpServletResponse response, User user)
             throws ServletException, IOException {
         if (!canWrite(user)) {
@@ -154,9 +141,6 @@ public class BuildingController extends HttpServlet {
         forward(request, response, "Sửa tòa nhà", "/WEB-INF/views/admin/building-form.jsp");
     }
 
-    /**
-     * Chi tiết tòa kèm danh sách căn hộ thuộc tòa (lọc aptStatus/aptQ, phân trang).
-     */
     private void handleDetail(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         Integer id = parseId(request.getParameter("id"));
@@ -172,30 +156,45 @@ public class BuildingController extends HttpServlet {
             return;
         }
 
-        // Chỉ nhận ACTIVE | INACTIVE; giá trị khác → coi như tất cả
+        // Filter căn hộ: status trước, rồi loại hình (chỉ khi ACTIVE)
         String aptStatus = trim(request.getParameter("aptStatus"));
         if (aptStatus != null
                 && !AppConstants.STATUS_ACTIVE.equals(aptStatus)
                 && !AppConstants.STATUS_INACTIVE.equals(aptStatus)) {
             aptStatus = null;
         }
+
+        String aptType = trim(request.getParameter("aptType"));
+        // Loại hình chỉ hợp lệ khi đã chọn ACTIVE — tránh lẫn với INACTIVE (N/A)
+        if (!AppConstants.STATUS_ACTIVE.equals(aptStatus)) {
+            aptType = null;
+        } else if (aptType != null
+                && !AppConstants.OCCUPANCY_OWNED.equals(aptType)
+                && !AppConstants.OCCUPANCY_RENTED.equals(aptType)
+                && !AppConstants.OCCUPANCY_VACANT.equals(aptType)) {
+            aptType = null;
+        }
+
         String aptQ = trim(request.getParameter("aptQ"));
         int aptPage = parsePage(request.getParameter("aptPage"));
         int pageSize = AppConstants.DEFAULT_PAGE_SIZE;
 
         List<Apartment> apartments = buildingDAO.findApartmentsByBuilding(
-                id, aptStatus, aptQ, aptPage, pageSize);
-        int aptTotal = buildingDAO.countApartmentsByBuilding(id, aptStatus, aptQ);
+                id, aptStatus, aptType, aptQ, aptPage, pageSize);
+        int aptTotal = buildingDAO.countApartmentsByBuilding(id, aptStatus, aptType, aptQ);
         int aptTotalPages = aptTotal == 0 ? 1 : (int) Math.ceil((double) aptTotal / pageSize);
         if (aptPage > aptTotalPages) {
             aptPage = aptTotalPages;
             apartments = buildingDAO.findApartmentsByBuilding(
-                    id, aptStatus, aptQ, aptPage, pageSize);
+                    id, aptStatus, aptType, aptQ, aptPage, pageSize);
         }
 
         int aptActive = buildingDAO.countApartmentsByBuildingStatus(id, AppConstants.STATUS_ACTIVE);
         int aptInactive = buildingDAO.countApartmentsByBuildingStatus(id, AppConstants.STATUS_INACTIVE);
         int aptAll = buildingDAO.countApartmentsByBuildingStatus(id, null);
+        int aptOwned = buildingDAO.countApartmentsByBuildingOccupancy(id, AppConstants.OCCUPANCY_OWNED);
+        int aptRented = buildingDAO.countApartmentsByBuildingOccupancy(id, AppConstants.OCCUPANCY_RENTED);
+        int aptVacant = buildingDAO.countApartmentsByBuildingOccupancy(id, AppConstants.OCCUPANCY_VACANT);
 
         request.setAttribute("building", building);
         request.setAttribute("apartments", apartments);
@@ -203,20 +202,20 @@ public class BuildingController extends HttpServlet {
         request.setAttribute("aptTotalPages", aptTotalPages);
         request.setAttribute("aptTotalItems", aptTotal);
         request.setAttribute("filterAptStatus", aptStatus == null ? "" : aptStatus);
+        request.setAttribute("filterAptType", aptType == null ? "" : aptType);
         request.setAttribute("filterAptQ", aptQ == null ? "" : aptQ);
         request.setAttribute("aptActiveCount", aptActive);
         request.setAttribute("aptInactiveCount", aptInactive);
         request.setAttribute("aptAllCount", aptAll);
+        request.setAttribute("aptOwnedCount", aptOwned);
+        request.setAttribute("aptRentedCount", aptRented);
+        request.setAttribute("aptVacantCount", aptVacant);
 
         FlashUtil.moveToRequest(request);
         forward(request, response, "Chi tiết tòa " + building.getBuildingCode(),
                 "/WEB-INF/views/admin/building-detail.jsp");
     }
 
-    /**
-     * Lưu tòa (insert hoặc update theo {@code buildingId}).
-     * Validate fail → re-render form; mã tòa chuẩn hóa UPPERCASE trước khi ghi DB.
-     */
     private void handleSave(HttpServletRequest request, HttpServletResponse response, User user)
             throws ServletException, IOException {
         if (!canWrite(user)) {
@@ -283,7 +282,6 @@ public class BuildingController extends HttpServlet {
         }
     }
 
-    /** Soft-delete: chuyển tòa sang INACTIVE. */
     private void handleDeactivate(HttpServletRequest request, HttpServletResponse response, User user)
             throws IOException {
         if (!canWrite(user)) {
@@ -301,7 +299,6 @@ public class BuildingController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/building?action=list");
     }
 
-    /** Kích hoạt lại tòa (ACTIVE). */
     private void handleActivate(HttpServletRequest request, HttpServletResponse response, User user)
             throws IOException {
         if (!canWrite(user)) {
@@ -319,10 +316,6 @@ public class BuildingController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/building?action=list");
     }
 
-    /**
-     * Xóa cứng tòa chỉ khi không còn căn hộ.
-     * Kết quả DAO: 1 = OK, -1 = còn căn, -2 = không tìm thấy.
-     */
     private void handleDelete(HttpServletRequest request, HttpServletResponse response, User user)
             throws IOException {
         if (!canWrite(user)) {
@@ -346,13 +339,8 @@ public class BuildingController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + "/building?action=list");
     }
 
-    /**
-     * Validate form tòa nhà.
-     *
-     * @param b      dữ liệu form
-     * @param isEdit true = bỏ qua chính id khi check trùng mã
-     * @return message lỗi, hoặc {@code null} nếu hợp lệ
-     */
+    /* ===================== validation / helpers ===================== */
+
     private String validate(Building b, boolean isEdit) {
         if (b.getBuildingCode() == null || b.getBuildingCode().isBlank()) {
             return "Mã tòa không được để trống.";
@@ -386,7 +374,6 @@ public class BuildingController extends HttpServlet {
         return null;
     }
 
-    /** User đăng nhập từ session, hoặc {@code null}. */
     private User currentUser(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {
@@ -395,7 +382,6 @@ public class BuildingController extends HttpServlet {
         return (User) session.getAttribute(AppConstants.SESSION_USER);
     }
 
-    /** Quyền ghi master data tòa nhà: ADMIN hoặc MANAGER. */
     private boolean canWrite(User user) {
         if (user == null || user.getRole() == null) {
             return false;
