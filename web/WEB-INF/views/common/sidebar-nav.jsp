@@ -35,6 +35,9 @@
         <a class="nav-link" href="${pageContext.request.contextPath}/fee?action=list">
             <i class="bi bi-cash-coin me-2"></i> Phí tháng
         </a>
+        <a class="nav-link" href="${pageContext.request.contextPath}/fee?action=categories">
+            <i class="bi bi-tags me-2"></i> Danh mục phí
+        </a>
     </c:if>
 
     <%-- ADMIN / MANAGER / STAFF: xử lý yêu cầu --%>
