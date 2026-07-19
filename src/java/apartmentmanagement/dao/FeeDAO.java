@@ -12,6 +12,8 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import apartmentmanagement.util.DateTimeUtil;
+import java.sql.Timestamp;
 
 public class FeeDAO extends DBContext {
 
@@ -352,14 +354,15 @@ public class FeeDAO extends DBContext {
     }
 
     public boolean updateStatus(int feeId, String expectedStatus, String newStatus) {
-        String sql = "UPDATE fees SET status = ?, updated_at = SYSUTCDATETIME() "
+        String sql = "UPDATE fees SET status = ?, updated_at = ? "
                 + "WHERE fee_id = ? AND status = ?";
         try {
             connection = getConnection();
             statement = connection.prepareStatement(sql);
             statement.setString(1, newStatus);
-            statement.setInt(2, feeId);
-            statement.setString(3, expectedStatus);
+            statement.setTimestamp(2, DateTimeUtil.nowTimestamp());
+            statement.setInt(3, feeId);
+            statement.setString(4, expectedStatus);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("FeeDAO.updateStatus error: " + e.getMessage());
@@ -370,12 +373,13 @@ public class FeeDAO extends DBContext {
     }
 
     public boolean setStatus(int feeId, String newStatus) {
-        String sql = "UPDATE fees SET status = ?, updated_at = SYSUTCDATETIME() WHERE fee_id = ?";
+        String sql = "UPDATE fees SET status = ?, updated_at = ? WHERE fee_id = ?";
         try {
             connection = getConnection();
             statement = connection.prepareStatement(sql);
             statement.setString(1, newStatus);
-            statement.setInt(2, feeId);
+            statement.setTimestamp(2, DateTimeUtil.nowTimestamp());
+            statement.setInt(3, feeId);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("FeeDAO.setStatus error: " + e.getMessage());

@@ -10,6 +10,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import apartmentmanagement.util.DateTimeUtil;
+import java.sql.Timestamp;
 
 /**
  * DAO căn hộ ({@code apartments}): CRUD, filter/sort/phân trang,
@@ -478,7 +480,7 @@ public class ApartmentDAO extends DBContext {
      */
     public boolean update(Apartment apartment) {
         String sql = "UPDATE apartments SET area_m2 = ?, occupancy_type = ?, status = ?, notes = ?, "
-                + "updated_at = SYSUTCDATETIME() WHERE apartment_id = ?";
+                + "updated_at = ? WHERE apartment_id = ?";
         try {
             connection = getConnection();
             if (connection == null) {
@@ -494,7 +496,8 @@ public class ApartmentDAO extends DBContext {
             } else {
                 statement.setString(4, apartment.getNotes());
             }
-            statement.setInt(5, apartment.getApartmentId());
+            statement.setTimestamp(5, DateTimeUtil.nowTimestamp());
+            statement.setInt(6, apartment.getApartmentId());
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("ApartmentDAO.update error: " + e.getMessage());
@@ -534,7 +537,7 @@ public class ApartmentDAO extends DBContext {
      * @return true nếu cập nhật thành công
      */
     public boolean updateStatus(int apartmentId, String status) {
-        String sql = "UPDATE apartments SET status = ?, updated_at = SYSUTCDATETIME() WHERE apartment_id = ?";
+        String sql = "UPDATE apartments SET status = ?, updated_at = ? WHERE apartment_id = ?";
         try {
             connection = getConnection();
             if (connection == null) {
@@ -542,7 +545,8 @@ public class ApartmentDAO extends DBContext {
             }
             statement = connection.prepareStatement(sql);
             statement.setString(1, status);
-            statement.setInt(2, apartmentId);
+            statement.setTimestamp(2, DateTimeUtil.nowTimestamp());
+            statement.setInt(3, apartmentId);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("ApartmentDAO.updateStatus error: " + e.getMessage());
@@ -563,7 +567,7 @@ public class ApartmentDAO extends DBContext {
     public boolean updateStatusAndOccupancy(int apartmentId, String status, String occupancyType) {
         ensureOccupancyCheckConstraint();
         String sql = "UPDATE apartments SET status = ?, occupancy_type = ?, "
-                + "updated_at = SYSUTCDATETIME() WHERE apartment_id = ?";
+                + "updated_at = ? WHERE apartment_id = ?";
         try {
             connection = getConnection();
             if (connection == null) {
@@ -572,7 +576,8 @@ public class ApartmentDAO extends DBContext {
             statement = connection.prepareStatement(sql);
             statement.setString(1, status);
             statement.setString(2, occupancyType);
-            statement.setInt(3, apartmentId);
+            statement.setTimestamp(3, DateTimeUtil.nowTimestamp());
+            statement.setInt(4, apartmentId);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("ApartmentDAO.updateStatusAndOccupancy error: " + e.getMessage()
@@ -595,8 +600,8 @@ public class ApartmentDAO extends DBContext {
         // VACANT = trống sẵn sàng: không giữ ghi chú demo / lý do ngừng
         boolean clearNotes = "VACANT".equals(occupancyType);
         String sql = clearNotes
-                ? "UPDATE apartments SET occupancy_type = ?, notes = NULL, updated_at = SYSUTCDATETIME() WHERE apartment_id = ?"
-                : "UPDATE apartments SET occupancy_type = ?, updated_at = SYSUTCDATETIME() WHERE apartment_id = ?";
+                ? "UPDATE apartments SET occupancy_type = ?, notes = NULL, updated_at = ? WHERE apartment_id = ?"
+                : "UPDATE apartments SET occupancy_type = ?, updated_at = ? WHERE apartment_id = ?";
         try {
             connection = getConnection();
             if (connection == null) {
@@ -604,7 +609,8 @@ public class ApartmentDAO extends DBContext {
             }
             statement = connection.prepareStatement(sql);
             statement.setString(1, occupancyType);
-            statement.setInt(2, apartmentId);
+            statement.setTimestamp(2, DateTimeUtil.nowTimestamp());
+            statement.setInt(3, apartmentId);
             int n = statement.executeUpdate();
             if (n <= 0) {
                 System.out.println("ApartmentDAO.updateOccupancy: 0 rows id=" + apartmentId
@@ -806,12 +812,12 @@ public class ApartmentDAO extends DBContext {
         try {
             // 1) INACTIVE → N/A
             total += runUpdateSafe(connection,
-                    "UPDATE apartments SET occupancy_type = N'N/A', updated_at = SYSUTCDATETIME() "
+                    "UPDATE apartments SET occupancy_type = N'N/A', updated_at = ? "
                     + "WHERE status = N'INACTIVE' AND ISNULL(occupancy_type, N'') <> N'N/A'");
 
             // 2) ACTIVE + tenant → RENTED (giữ OWNER nếu có)
             total += runUpdateSafe(connection,
-                    "UPDATE a SET a.occupancy_type = N'RENTED', a.updated_at = SYSUTCDATETIME() "
+                    "UPDATE a SET a.occupancy_type = N'RENTED', a.updated_at = ? "
                     + "FROM apartments a "
                     + "WHERE a.status = N'ACTIVE' "
                     + "AND EXISTS (SELECT 1 FROM apartment_residents r "
@@ -822,7 +828,7 @@ public class ApartmentDAO extends DBContext {
             // 3) ACTIVE + owner only (không tenant) → OWNED
             //    Không đụng căn đang RENTED (ô thuê trống — gán lại được).
             total += runUpdateSafe(connection,
-                    "UPDATE a SET a.occupancy_type = N'OWNED', a.updated_at = SYSUTCDATETIME() "
+                    "UPDATE a SET a.occupancy_type = N'OWNED', a.updated_at = ? "
                     + "FROM apartments a "
                     + "WHERE a.status = N'ACTIVE' "
                     + "AND EXISTS (SELECT 1 FROM apartment_residents r "
@@ -835,7 +841,7 @@ public class ApartmentDAO extends DBContext {
 
             // 4) ACTIVE + TV hộ, không role → OWNED (giữ RENTED nếu đã chọn)
             total += runUpdateSafe(connection,
-                    "UPDATE a SET a.occupancy_type = N'OWNED', a.updated_at = SYSUTCDATETIME() "
+                    "UPDATE a SET a.occupancy_type = N'OWNED', a.updated_at = ? "
                     + "FROM apartments a "
                     + "WHERE a.status = N'ACTIVE' "
                     + "AND NOT EXISTS (SELECT 1 FROM apartment_residents r "
@@ -847,7 +853,7 @@ public class ApartmentDAO extends DBContext {
             // 5) ACTIVE trống + occupancy không hợp lệ (null / N/A / lạ) → VACANT
             //    Giữ OWNED / RENTED / VACANT đã chọn lúc kích hoạt hoặc form Sửa.
             total += runUpdateSafe(connection,
-                    "UPDATE a SET a.occupancy_type = N'VACANT', a.notes = NULL, a.updated_at = SYSUTCDATETIME() "
+                    "UPDATE a SET a.occupancy_type = N'VACANT', a.notes = NULL, a.updated_at = ? "
                     + "FROM apartments a "
                     + "WHERE a.status = N'ACTIVE' "
                     + "AND NOT EXISTS (SELECT 1 FROM apartment_residents r "
@@ -858,7 +864,7 @@ public class ApartmentDAO extends DBContext {
 
             // 5b) Mọi VACANT còn notes → xóa (INACTIVE giữ notes)
             total += runUpdateSafe(connection,
-                    "UPDATE apartments SET notes = NULL, updated_at = SYSUTCDATETIME() "
+                    "UPDATE apartments SET notes = NULL, updated_at = ? "
                     + "WHERE occupancy_type = N'VACANT' AND notes IS NOT NULL");
 
             System.out.println("ApartmentDAO.reconcileAllOccupancy: updated rows=" + total);
@@ -873,11 +879,25 @@ public class ApartmentDAO extends DBContext {
     /** UPDATE từng bước — lỗi 1 bước không chặn bước sau. */
     private int runUpdateSafe(Connection conn, String sql) {
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            int placeholders = countPlaceholders(sql);
+            for (int i = 1; i <= placeholders; i++) {
+                ps.setTimestamp(i, DateTimeUtil.nowTimestamp());
+            }
             return ps.executeUpdate();
         } catch (SQLException e) {
             System.out.println("ApartmentDAO.runUpdateSafe error: " + e.getMessage());
             return 0;
         }
+    }
+
+    private int countPlaceholders(String sql) {
+        int n = 0;
+        for (int i = 0; i < sql.length(); i++) {
+            if (sql.charAt(i) == '?') {
+                n++;
+            }
+        }
+        return n;
     }
 
     /**

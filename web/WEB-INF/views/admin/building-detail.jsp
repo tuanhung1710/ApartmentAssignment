@@ -1,6 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="t" tagdir="/WEB-INF/tags" %>
 
 <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-start gap-2 mb-3">
     <div>
@@ -94,7 +95,7 @@
                         <c:choose>
                             <c:when test="${empty building.createdAt}">—</c:when>
                             <c:otherwise>
-                                <fmt:formatDate value="${building.createdAt}" pattern="dd/MM/yyyy HH:mm"/>
+                                <t:rt value="${building.createdAt}" mode="full"/>
                             </c:otherwise>
                         </c:choose>
                     </div>
@@ -104,7 +105,7 @@
                         <c:choose>
                             <c:when test="${empty building.updatedAt}"><span class="text-muted">Chưa cập nhật</span></c:when>
                             <c:otherwise>
-                                <fmt:formatDate value="${building.updatedAt}" pattern="dd/MM/yyyy HH:mm"/>
+                                <t:rt value="${building.updatedAt}" mode="full"/>
                             </c:otherwise>
                         </c:choose>
                     </div>

@@ -10,6 +10,8 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import apartmentmanagement.util.DateTimeUtil;
+import java.sql.Timestamp;
 
 public class FeeAssignmentDAO extends DBContext {
 
@@ -558,11 +560,12 @@ public class FeeAssignmentDAO extends DBContext {
         try {
             connection = getConnection();
             try (PreparedStatement upd = connection.prepareStatement(
-                    "UPDATE fee_assignments SET status = ?, paid_at = SYSUTCDATETIME() "
+                    "UPDATE fee_assignments SET status = ?, paid_at = ? "
                     + "WHERE assignment_id = ? AND status = ?")) {
                 upd.setString(1, AppConstants.ASSIGNMENT_PAID);
-                upd.setInt(2, assignmentId);
-                upd.setString(3, AppConstants.ASSIGNMENT_UNPAID);
+                upd.setTimestamp(2, DateTimeUtil.nowTimestamp());
+                upd.setInt(3, assignmentId);
+                upd.setString(4, AppConstants.ASSIGNMENT_UNPAID);
                 if (upd.executeUpdate() <= 0) {
                     return false;
                 }

@@ -10,6 +10,8 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import apartmentmanagement.util.DateTimeUtil;
+import java.sql.Timestamp;
 
 
 public class BuildingDAO extends DBContext {
@@ -210,7 +212,7 @@ public class BuildingDAO extends DBContext {
 
     public boolean update(Building building) {
         String sql = "UPDATE buildings SET building_code = ?, building_name = ?, address = ?, "
-                + "total_floors = ?, description = ?, status = ?, updated_at = SYSUTCDATETIME() "
+                + "total_floors = ?, description = ?, status = ?, updated_at = ? "
                 + "WHERE building_id = ?";
         try {
             connection = getConnection();
@@ -228,7 +230,8 @@ public class BuildingDAO extends DBContext {
             }
             statement.setString(5, building.getDescription());
             statement.setString(6, building.getStatus());
-            statement.setInt(7, building.getBuildingId());
+            statement.setTimestamp(7, DateTimeUtil.nowTimestamp());
+            statement.setInt(8, building.getBuildingId());
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("BuildingDAO.update error: " + e.getMessage());
@@ -240,7 +243,7 @@ public class BuildingDAO extends DBContext {
 
     /** Soft-delete: INACTIVE. Không xóa cứng nếu còn căn hộ. */
     public boolean deactivate(int buildingId) {
-        String sql = "UPDATE buildings SET status = N'INACTIVE', updated_at = SYSUTCDATETIME() "
+        String sql = "UPDATE buildings SET status = N'INACTIVE', updated_at = ? "
                 + "WHERE building_id = ?";
         try {
             connection = getConnection();
@@ -248,7 +251,8 @@ public class BuildingDAO extends DBContext {
                 return false;
             }
             statement = connection.prepareStatement(sql);
-            statement.setInt(1, buildingId);
+            statement.setTimestamp(1, DateTimeUtil.nowTimestamp());
+            statement.setInt(2, buildingId);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("BuildingDAO.deactivate error: " + e.getMessage());
@@ -259,7 +263,7 @@ public class BuildingDAO extends DBContext {
     }
 
     public boolean activate(int buildingId) {
-        String sql = "UPDATE buildings SET status = N'ACTIVE', updated_at = SYSUTCDATETIME() "
+        String sql = "UPDATE buildings SET status = N'ACTIVE', updated_at = ? "
                 + "WHERE building_id = ?";
         try {
             connection = getConnection();
@@ -267,7 +271,8 @@ public class BuildingDAO extends DBContext {
                 return false;
             }
             statement = connection.prepareStatement(sql);
-            statement.setInt(1, buildingId);
+            statement.setTimestamp(1, DateTimeUtil.nowTimestamp());
+            statement.setInt(2, buildingId);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("BuildingDAO.activate error: " + e.getMessage());

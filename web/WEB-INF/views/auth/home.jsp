@@ -1,6 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="t" tagdir="/WEB-INF/tags" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -143,7 +144,7 @@
                                     </span>
                                     <c:if test="${not empty a.publishedAt}">
                                         <span class="small text-muted">
-                                            <fmt:formatDate value="${a.publishedAt}" pattern="dd/MM/yyyy"/>
+                                            <t:rt value="${a.publishedAt}" mode="full"/>
                                         </span>
                                     </c:if>
                                 </div>

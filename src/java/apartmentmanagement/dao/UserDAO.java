@@ -2,7 +2,9 @@ package apartmentmanagement.dao;
 
 import apartmentmanagement.dal.DBContext;
 import apartmentmanagement.model.User;
+import apartmentmanagement.util.DateTimeUtil;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -199,21 +201,24 @@ public class UserDAO extends DBContext {
      */
     public boolean updateProfile(User user) {
         String sql = user.getEmail() != null
-                ? "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?"
-                : "UPDATE users SET full_name = ?, phone = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
+                ? "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = ? WHERE user_id = ?"
+                : "UPDATE users SET full_name = ?, phone = ?, updated_at = ? WHERE user_id = ?";
         try {
             connection = getConnection();
             statement = connection.prepareStatement(sql);
+            Timestamp now = DateTimeUtil.nowTimestamp();
             if (user.getEmail() != null) {
                 statement.setString(1, user.getFullName());
                 statement.setString(2, user.getEmail());
                 statement.setString(3, user.getPhone());
-                statement.setInt(4, user.getUserId());
+                statement.setTimestamp(4, now);
+                statement.setInt(5, user.getUserId());
             } else {
                 // Không ghi đè email khi caller không truyền
                 statement.setString(1, user.getFullName());
                 statement.setString(2, user.getPhone());
-                statement.setInt(3, user.getUserId());
+                statement.setTimestamp(3, now);
+                statement.setInt(4, user.getUserId());
             }
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -256,12 +261,13 @@ public class UserDAO extends DBContext {
      * @return {@code true} nếu cập nhật thành công
      */
     public boolean changePassword(int userId, String newPassword) {
-        String sql = "UPDATE users SET password = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
+        String sql = "UPDATE users SET password = ?, updated_at = ? WHERE user_id = ?";
         try {
             connection = getConnection();
             statement = connection.prepareStatement(sql);
             statement.setString(1, newPassword);
-            statement.setInt(2, userId);
+            statement.setTimestamp(2, DateTimeUtil.nowTimestamp());
+            statement.setInt(3, userId);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("UserDAO.changePassword error: " + e.getMessage());
@@ -479,12 +485,13 @@ public class UserDAO extends DBContext {
      * @return {@code true} nếu cập nhật thành công
      */
     public boolean updateStatus(int userId, boolean isActive) {
-        String sql = "UPDATE users SET is_active = ?, updated_at = SYSUTCDATETIME() WHERE user_id = ?";
+        String sql = "UPDATE users SET is_active = ?, updated_at = ? WHERE user_id = ?";
         try {
             connection = getConnection();
             statement = connection.prepareStatement(sql);
             statement.setBoolean(1, isActive);
-            statement.setInt(2, userId);
+            statement.setTimestamp(2, DateTimeUtil.nowTimestamp());
+            statement.setInt(3, userId);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("UserDAO.updateStatus error: " + e.getMessage());
@@ -582,7 +589,7 @@ public class UserDAO extends DBContext {
                 + "role = ?, "
                 + "department = ?, "
                 + "is_active = ?, "
-                + "updated_at = SYSUTCDATETIME() "
+                + "updated_at = ? "
                 + "WHERE user_id = ?";
         try {
             connection = getConnection();
@@ -595,7 +602,8 @@ public class UserDAO extends DBContext {
             statement.setString(2, user.getRole());
             statement.setString(3, user.getDepartment());
             statement.setBoolean(4, user.getIsActive() == null || user.getIsActive());
-            statement.setInt(5, user.getUserId());
+            statement.setTimestamp(5, DateTimeUtil.nowTimestamp());
+            statement.setInt(6, user.getUserId());
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("UserDAO.updateByAdmin error: " + e.getMessage());

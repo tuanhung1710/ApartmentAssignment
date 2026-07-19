@@ -87,7 +87,7 @@
                     <c:if test="${reqItem.requestType == 'MOVE_IN' || reqItem.requestType == 'MOVE_OUT'}">
                         <dt class="col-sm-4">Giờ đăng ký</dt>
                         <dd class="col-sm-8">
-                            <fmt:formatDate value="${reqItem.scheduledAt}" pattern="dd/MM/yyyy HH:mm"/>
+                            <t:rt value="${reqItem.scheduledAt}" mode="full"/>
                         </dd>
                         <dt class="col-sm-4">Ghi chú</dt>
                         <dd class="col-sm-8">${empty reqItem.moveNote ? '—' : reqItem.moveNote}</dd>
@@ -106,7 +106,7 @@
                     <c:if test="${not empty reqItem.completedAt}">
                         <dt class="col-sm-4">Hoàn thành lúc</dt>
                         <dd class="col-sm-8">
-                            <fmt:formatDate value="${reqItem.completedAt}" pattern="dd/MM/yyyy HH:mm"/>
+                            <t:rt value="${reqItem.completedAt}" mode="full"/>
                         </dd>
                     </c:if>
                 </dl>

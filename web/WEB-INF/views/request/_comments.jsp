@@ -1,6 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="t" tagdir="/WEB-INF/tags" %>
 
 
 <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
@@ -44,9 +45,9 @@
                                     <span class="badge text-bg-light text-dark ms-1"><c:out value="${cmt.changedByRole}"/></span>
                                 </c:if>
                                 <span class="small ms-1 comment-time"
-                                      title="<fmt:formatDate value="${cmt.createdAt}" pattern="dd/MM/yyyy HH:mm:ss"/>">
+                                      title="">
                                     <i class="bi bi-clock me-1"></i>
-                                    <fmt:formatDate value="${cmt.createdAt}" pattern="HH:mm"/>
+                                    <t:rt value="${cmt.createdAt}" mode="history"/>
                                 </span>
                             </div>
                             <%-- HTML đã sanitize phía server khi gửi --%>

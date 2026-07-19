@@ -8,6 +8,8 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import apartmentmanagement.util.DateTimeUtil;
+import java.sql.Timestamp;
 
 /**
  * DAO lịch sử thao tác căn hộ ({@code apartment_history}):
@@ -136,8 +138,8 @@ public class ApartmentHistoryDAO extends DBContext {
             return -1;
         }
         String sql = "INSERT INTO apartment_history "
-                + "(apartment_id, action, old_status, new_status, note, actor_user_id, actor_name) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                + "(apartment_id, action, old_status, new_status, note, actor_user_id, actor_name, created_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try {
             connection = getConnection();
             if (connection == null) {
@@ -156,6 +158,7 @@ public class ApartmentHistoryDAO extends DBContext {
                 statement.setInt(6, h.getActorUserId());
             }
             setNullableString(7, h.getActorName());
+            statement.setTimestamp(8, DateTimeUtil.nowTimestamp());
             int affected = statement.executeUpdate();
             if (affected > 0) {
                 resultSet = statement.getGeneratedKeys();

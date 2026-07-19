@@ -256,15 +256,16 @@ public class RequestDAO extends DBContext {
     }
 
     public boolean cancel(int requestId, int userId) {
-        String sql = "UPDATE requests SET status = ?, updated_at = SYSUTCDATETIME() "
+        String sql = "UPDATE requests SET status = ?, updated_at = ? "
                 + "WHERE request_id = ? AND created_by = ? AND status = ?";
         try {
             connection = getConnection();
             statement = connection.prepareStatement(sql);
             statement.setString(1, AppConstants.STATUS_CANCELLED);
-            statement.setInt(2, requestId);
-            statement.setInt(3, userId);
-            statement.setString(4, AppConstants.STATUS_PENDING);
+            statement.setTimestamp(2, DateTimeUtil.nowTimestamp());
+            statement.setInt(3, requestId);
+            statement.setInt(4, userId);
+            statement.setString(5, AppConstants.STATUS_PENDING);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("RequestDAO.cancel error: " + e.getMessage());

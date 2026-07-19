@@ -1,6 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="t" tagdir="/WEB-INF/tags" %>
 
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
     <div>
@@ -129,7 +130,7 @@
                 <div class="small">
                     <c:choose>
                         <c:when test="${empty apartment.createdAt}">—</c:when>
-                        <c:otherwise>${apartment.createdAt}</c:otherwise>
+                        <c:otherwise><t:rt value="${apartment.createdAt}" mode="full"/></c:otherwise>
                     </c:choose>
                 </div>
             </div>
@@ -138,7 +139,7 @@
                 <div class="small">
                     <c:choose>
                         <c:when test="${empty apartment.updatedAt}">—</c:when>
-                        <c:otherwise>${apartment.updatedAt}</c:otherwise>
+                        <c:otherwise><t:rt value="${apartment.updatedAt}" mode="full"/></c:otherwise>
                     </c:choose>
                 </div>
             </div>
@@ -481,7 +482,7 @@
                     <c:when test="${empty histories}">
                         <tr>
                             <td class="small text-muted">
-                                <c:out value="${empty apartment.createdAt ? '—' : apartment.createdAt}"/>
+                                <c:choose><c:when test="${empty apartment.createdAt}">—</c:when><c:otherwise><t:rt value="${apartment.createdAt}" mode="full"/></c:otherwise></c:choose>
                             </td>
                             <td><span class="badge text-bg-primary">CREATE</span></td>
                             <td class="small">→ ${apartment.status}</td>
@@ -501,7 +502,7 @@
                         <c:forEach var="h" items="${histories}">
                             <tr>
                                 <td class="small text-muted">
-                                    <c:out value="${empty h.createdAt ? '—' : h.createdAt}"/>
+                                    <c:choose><c:when test="${empty h.createdAt}">—</c:when><c:otherwise><t:rt value="${h.createdAt}" mode="history"/></c:otherwise></c:choose>
                                 </td>
                                 <td>
                                     <c:choose>
