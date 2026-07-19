@@ -1,50 +1,37 @@
-# ApartmentManagement (PRJ301)
+# ApartmentManagement — nhánh `tv4`
 
-Hệ thống quản lý & xử lý yêu cầu căn hộ chung cư — NetBeans Ant · Tomcat 10 · Jakarta · SQL Server · JDBC · Lombok · JSP/JSTL/Bootstrap.
+> **Nhánh dev (TV4 — yêu cầu cư dân).** Bản đủ module để chạy / demo / nộp bài: xem nhánh **[`main`](https://github.com/tuanhung1710/ApartmentAssignment/tree/main)**.
 
-## Cấu trúc
+Phạm vi TV4: request cư dân (gửi / list / chi tiết / hủy PENDING) + chat/comment (HTTP và/hoặc WebSocket tùy commit nhánh).
+
+## Setup (theo `main`)
+
+Trên nhánh này có thể thiếu module khác. **Khuyến nghị clone/checkout `main`** rồi:
+
+1. Chạy `database/schema.sql` → `database/seed.sql`
+2. Sửa `src/java/apartmentmanagement/dal/DBContext.java` (password SQL máy bạn)
+3. NetBeans + Tomcat 10.x · Annotation Processing (Lombok) · Run → `/ApartmentManagement`
+
+Chi tiết URL, tài khoản demo, phân công: **[README trên `main`](https://github.com/tuanhung1710/ApartmentAssignment/blob/main/README.md)**.
+
+## Phạm vi code trên nhánh này
 
 ```
-ApartmentManagement/
-├── lib/                          # JARs compile-time (NetBeans classpath)
-├── src/java/apartmentmanagement/
-│   ├── dal/DBContext.java
-│   ├── model/                    # Entity Lombok
-│   ├── dao/                      # *DAO extends DBContext
-│   ├── filter/                   # EncodingFilter, AuthFilter
-│   ├── controller/
-│   │   ├── auth/                 # AuthenController, DashboardController
-│   │   ├── apartment/            # TV2
-│   │   ├── fee/                  # TV3
-│   │   ├── request/              # TV4 + TV5
-│   │   └── admin/                # TV5
-│   └── util/
-├── web/
-│   ├── assets/css/app.css
-│   ├── WEB-INF/
-│   │   ├── lib/                  # runtime JARs trong WAR
-│   │   ├── views/{common,auth,apartment,fee,request,admin,error}/
-│   │   └── web.xml
-│   └── index.jsp
-└── nbproject/
+controller/request/       RequestController, RequestCommentController (nếu có)
+dao/                      RequestDAO, RequestHistoryDAO, …
+websocket/                (nếu có trên nhánh)
+web/WEB-INF/views/request/
 ```
+**Lưu ý:** path docs/database nằm ở **root repo** (\`database/\`, \`docs/\`), không phải \`../database\`.
 
-Tài liệu: `../docs/coding-standards.md`, `../docs/use-cases.md`, `../docs/ke-hoach-1-tuan-5-nguoi.md`  
-Database: `../database/schema.sql`, `../database/seed.sql`
+**Quy ước:** chỉ sửa package/view module mình. Shell (`layout`, filter, `DBContext`) merge cẩn thận với `main`.
+Cắm trang qua `contentPage` + forward `common/layout.jsp` — xem `coding-standards.md` trên `main`.
 
-## Chạy project
+## Tài khoản demo (sau seed trên `main`)
 
-1. SQL Server: chạy `database/schema.sql` rồi `database/seed.sql`
-2. Sửa connection trong `apartmentmanagement.dal.DBContext` (user/password máy bạn)
-3. Mở project bằng **NetBeans** (Java Web / Tomcat 10)
-4. Enable **Annotation Processing** (Lombok)
-5. Run trên Tomcat 10 → `/ApartmentManagement`
+Password: `123456` — `admin` · `manager` · `staff` · `resident1` · …
 
-## Tài khoản demo
+## Nộp bài
 
-| Username | Password | Role |
-|----------|----------|------|
-| admin | 123456 | ADMIN |
-| manager | 123456 | MANAGER |
-| staff | 123456 | STAFF |
-| resident1 | 123456 | RESIDENT |
+Dùng **`main`** (link GitHub + zip source + `database/schema.sql` + `seed.sql`).
+Không cần export `.bak` từ SQL Server.
