@@ -1,3 +1,14 @@
+/*
+================================================================================
+  OPTIONAL / LEGACY — bổ sung bảng phí khi DB cũ thiếu fee_* / payments.
+
+  Máy mới hoặc reset sạch: KHÔNG cần file này.
+  Chỉ chạy database/schema.sql rồi database/seed.sql (schema đã gộp đủ bảng phí).
+
+  File này idempotent (IF OBJECT_ID … IS NULL) — an toàn nếu chạy nhầm trên DB mới.
+================================================================================
+*/
+
 USE ApartmentManagement;
 GO
 
