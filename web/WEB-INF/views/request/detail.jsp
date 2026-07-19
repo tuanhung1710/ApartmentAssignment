@@ -61,7 +61,7 @@
                     <dt class="col-sm-4">Ngày gửi</dt>
                     <dd class="col-sm-8">
                         <%-- Realtime VN: hôm nay HH:mm · khác ngày dd/MM HH:mm --%>
-                        <t:rt value="${reqItem.createdAt}"/>
+                        <t:rt value="${reqItem.createdAt}" mode="full"/>
                     </dd>
 
                     <c:if test="${reqItem.requestType == 'REPAIR'}">
@@ -137,7 +137,7 @@
                                             <span class="badge text-bg-primary">${h.newStatus}</span>
                                         </div>
                                         <span class="small">
-                                            <t:rt value="${h.createdAt}" mode="history"/>
+                                            <t:rt value="${h.createdAt}" mode="full"/>
                                         </span>
                                     </div>
                                     <div class="small mt-1">

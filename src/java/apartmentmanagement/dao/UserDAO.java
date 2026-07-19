@@ -380,8 +380,9 @@ public class UserDAO extends DBContext {
      * @return userId mới; {@code 0} nếu insert OK nhưng không lấy được key; {@code -1} nếu lỗi
      */
     public int insert(User user) {
-        String sql = "INSERT INTO users (username, password, full_name, email, phone, role, department, is_active) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        // Ghi created_at realtime (tránh DEFAULT SYSUTCDATETIME UTC lệch giờ VN)
+        String sql = "INSERT INTO users (username, password, full_name, email, phone, role, department, is_active, created_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try {
             connection = getConnection();
             statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
@@ -394,6 +395,7 @@ public class UserDAO extends DBContext {
             statement.setString(7, user.getDepartment());
             // null isActive → coi như active khi tạo mới
             statement.setBoolean(8, user.getIsActive() == null || user.getIsActive());
+            statement.setTimestamp(9, DateTimeUtil.nowTimestamp());
             int affected = statement.executeUpdate();
             if (affected > 0) {
                 resultSet = statement.getGeneratedKeys();

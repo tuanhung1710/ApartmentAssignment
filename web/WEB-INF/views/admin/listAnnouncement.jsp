@@ -101,7 +101,7 @@
                                 </td>
                                 <td>
                                     <c:if test="${not empty a.createdAt}">
-                                        <t:rt value="${a.createdAt}"/>
+                                        <t:rt value="${a.createdAt}" mode="full"/>
                                     </c:if>
                                 </td>
                                 <td class="text-center text-nowrap">

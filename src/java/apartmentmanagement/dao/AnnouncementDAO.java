@@ -130,9 +130,10 @@ public class AnnouncementDAO extends DBContext {
     }
 
     public int insert(Announcement announcement) {
+        // Ghi created_at realtime (tránh DEFAULT SYSUTCDATETIME UTC lệch giờ VN)
         String sql = "INSERT INTO announcements "
-                + "(title, content, category, is_published, created_by, published_at) "
-                + "VALUES (?, ?, ?, ?, ?, ?)";
+                + "(title, content, category, is_published, created_by, published_at, created_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
         try {
             connection = getConnection();
             if (connection == null) {
@@ -140,6 +141,7 @@ public class AnnouncementDAO extends DBContext {
                 return -1;
             }
             statement = connection.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS);
+            Timestamp now = DateTimeUtil.nowTimestamp();
             statement.setString(1, announcement.getTitle());
             statement.setString(2, announcement.getContent());
             statement.setString(3, announcement.getCategory());
@@ -151,10 +153,11 @@ public class AnnouncementDAO extends DBContext {
                 statement.setNull(5, java.sql.Types.INTEGER);
             }
             if (published) {
-                statement.setTimestamp(6, DateTimeUtil.nowTimestamp());
+                statement.setTimestamp(6, now);
             } else {
                 statement.setNull(6, java.sql.Types.TIMESTAMP);
             }
+            statement.setTimestamp(7, now);
             int affected = statement.executeUpdate();
             if (affected > 0) {
                 resultSet = statement.getGeneratedKeys();

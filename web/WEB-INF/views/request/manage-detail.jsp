@@ -267,7 +267,7 @@
                         <div class="text-muted small">Created Date</div>
                         <div class="fw-semibold">
                             <c:if test="${not empty requestDetail.createdAt}">
-                                <t:rt value="${requestDetail.createdAt}"/>
+                                <t:rt value="${requestDetail.createdAt}" mode="full"/>
                             </c:if>
                         </div>
                     </div>
@@ -386,7 +386,7 @@
                     <dt class="col-5 text-muted">Updated</dt>
                     <dd class="col-7">
                         <c:if test="${not empty requestDetail.updatedAt}">
-                            <t:rt value="${requestDetail.updatedAt}"/>
+                            <t:rt value="${requestDetail.updatedAt}" mode="full"/>
                         </c:if>
                         <c:if test="${empty requestDetail.updatedAt}">—</c:if>
                     </dd>
@@ -429,7 +429,7 @@
                                 <td>${st.count}</td>
                                 <td>
                                     <c:if test="${not empty h.createdAt}">
-                                        <t:rt value="${h.createdAt}" mode="history"/>
+                                        <t:rt value="${h.createdAt}" mode="full"/>
                                     </c:if>
                                 </td>
                                 <td>

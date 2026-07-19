@@ -502,7 +502,7 @@
                         <c:forEach var="h" items="${histories}">
                             <tr>
                                 <td class="small text-muted">
-                                    <c:choose><c:when test="${empty h.createdAt}">—</c:when><c:otherwise><t:rt value="${h.createdAt}" mode="history"/></c:otherwise></c:choose>
+                                    <c:choose><c:when test="${empty h.createdAt}">—</c:when><c:otherwise><t:rt value="${h.createdAt}" mode="full"/></c:otherwise></c:choose>
                                 </td>
                                 <td>
                                     <c:choose>

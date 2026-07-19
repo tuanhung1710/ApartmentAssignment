@@ -47,7 +47,7 @@
                                 <span class="small ms-1 comment-time"
                                       title="">
                                     <i class="bi bi-clock me-1"></i>
-                                    <t:rt value="${cmt.createdAt}" mode="history"/>
+                                    <t:rt value="${cmt.createdAt}" mode="full"/>
                                 </span>
                             </div>
                             <%-- HTML đã sanitize phía server khi gửi --%>
